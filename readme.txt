@@ -15,6 +15,6 @@ In tools/recorder.py there is a Recorder object that carefully monitors the trai
 In tools/load_data.py there is a bit of messy code to load various datasets. 
 For debugging, there is a way to modify to artificially make the datasets smaller. 
 
-To see a demo of the code, run for example
+To see a demo of the code, run for example:
 
 python experiments.py 2
