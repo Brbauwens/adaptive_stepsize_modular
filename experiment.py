@@ -17,19 +17,20 @@ class ExperimentSgd:
         self.scheduler = None if scheduler_class is None \
             else scheduler_class(self.optimizer, **self.quargs_scheduler)
 
-def run_experiments(train_dl, test_dl, experiments, num_epochs=2):
+def run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=False):
     trainers = []
     exp_recorder = ExperimentsRecorder()
     for exp in experiments:
-        tn = Trainer(exp.model, exp.optimizer, exp.scheduler) #train_dl, test_dl,
+        tn = Trainer(exp.model, exp.optimizer, exp.scheduler)
         trainers.append(tn)
         exp_recorder[exp.name] = tn.recorder
 
     for tn in trainers:
         tn.recorder.restart()
-        tn.model.train()
 
     for epoch in range(num_epochs):
+        if verbose:
+            print(f"Epoch {epoch+1} starting")
         for tn in trainers:
             tn.train_loop_init()
 
@@ -38,7 +39,13 @@ def run_experiments(train_dl, test_dl, experiments, num_epochs=2):
             for tn in trainers:
                 tn.train_step(images, labels)
 
+        if verbose:
+            print(f"Epoch {epoch+1} train finished")
+
         for tn in trainers:
             tn.train_loop_check(test_dl)
+
+        if verbose:
+            print(f"Epoch {epoch+1} check finished")
 
     return exp_recorder, trainers

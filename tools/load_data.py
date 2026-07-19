@@ -195,4 +195,4 @@ def load_pointsDataset(dim=20, n_train=2000, n_test=1000):
     return train_loader, test_loader
 
 def get_device():
-    torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+    return torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"

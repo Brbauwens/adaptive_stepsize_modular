@@ -76,8 +76,7 @@ if 'run_test' in locals() and run_test == 3:
             Experiment('SPS coeff=0.01 moment=0.9', clone_model3(), {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=5)
-
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=5, verbose=True)
 
 if 'run_test' in locals() and run_test == 4:
     exp4_save_file = '.data_experiments/exp4.pth'
@@ -98,18 +97,18 @@ if 'run_test' in locals() and run_test == 4:
             Experiment('SPS coeff=0.01 moment=0.9', clone_model4(), {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=2)
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=True)
 
 
 if 'run_test' in locals() and run_test == 5:
     exp5_save_file = '.data_experiments/exp5.pth'
     def clone_model5():
-        mdl = make_resnet34v2(train_dl).to(device)
+        mdl = make_resnet18v2(train_dl).to(device)
         mdl.load_state_dict(torch.load(exp5_save_file, weights_only=True))
         return mdl
 
     train_dl, test_dl = load_data('CIFAR100')
-    model = make_resnet34v2(train_dl).to(device)
+    model = make_resnet18v2(train_dl).to(device)
     torch.save(model.state_dict(), exp5_save_file)
 
     experiments = [
@@ -117,4 +116,4 @@ if 'run_test' in locals() and run_test == 5:
             Experiment('SPS coeff=0.05 no_moment', clone_model5(), {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=1)
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=1, verbose=True)

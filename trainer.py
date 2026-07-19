@@ -36,7 +36,7 @@ class Trainer:
     The output of the function batch_step of the scheduler controls what is recorded.
     """
 
-    def __init__(self, model, optimizer, scheduler=None, verbose=1, do_optimiser_step=True): #train_dl, test_dl, 
+    def __init__(self, model, optimizer, scheduler=None, verbose=1, do_optimiser_step=True):
         self.model,    self.optimizer, self.scheduler  =  model.to(device),  optimizer,  scheduler
         self.score_train = None
         self.recorder   =  Recorder(verbose)
