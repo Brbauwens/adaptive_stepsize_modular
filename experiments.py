@@ -13,12 +13,13 @@ class Experiment:
         self.scheduler        = scheduler 
         self.quargs_scheduler = quargs_scheduler
 
-def run_experiments(train_dl, test_dl, model, experiments, num_epochs=2):
+def run_experiments(dataset_name, model, experiments, num_epochs=2, seed=33):
     exp_recorder  = ExperimentsRecorder()
     initial_state = {k : v.clone() for k,v in model.state_dict().items()}
     trainers = []
     exp_recorder = ExperimentsRecorder()
     for exp in experiments:
+        train_dl, test_dl = load_data(dataset_name, seed=seed)
         model.load_state_dict(initial_state)
         print('\n' + exp.name)
         optimizer = SGD(model.parameters(), **exp.quargs_SGD)
@@ -52,7 +53,7 @@ if 'run_test' in locals():
 
 
 if 'run_test' in locals() and run_test == 2:
-    train_dl, test_dl = load_data('PointsDataset')
+    train_dl, _ = load_data('PointsDataset')
     model = BasicTreeLayerNN(train_dl, 200, 20).to(device)
 
     num_epochs = 20
@@ -71,12 +72,12 @@ if 'run_test' in locals() and run_test == 2:
             #    ), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs)
+    rec, trainers = run_experiments('PointsDataset', model, experiments, num_epochs)
     recplot(rec)
 
 
 if 'run_test' in locals() and run_test == 3:
-    train_dl, test_dl = load_data(datasets.CIFAR10)
+    train_dl, _ = load_data(datasets.CIFAR10)
     model = BasicTreeLayerNN(train_dl, 200, 20).to(device)
 
     experiments = [
@@ -87,12 +88,12 @@ if 'run_test' in locals() and run_test == 3:
             Experiment('SPS coeff=0.01 moment=0.9', {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=5)
+    rec, trainers = run_experiments(datasets.CIFAR10, model, experiments, num_epochs=5)
 
 
 if 'run_test' in locals() and run_test == 4:
     from nets.cnn import make_resnet18v2
-    train_dl, test_dl = load_data('CIFAR10')
+    train_dl, _ = load_data('CIFAR10')
     model = make_resnet18v2(train_dl).to(device)
 
     experiments = [
@@ -103,12 +104,12 @@ if 'run_test' in locals() and run_test == 4:
             Experiment('SPS coeff=0.01 moment=0.9', {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=2)
+    rec, trainers = run_experiments('CIFAR10', model, experiments, num_epochs=2)
 
 
 if 'run_test' in locals() and run_test == 5:
     from nets.cnn import make_resnet34v2
-    train_dl, test_dl = load_data('CIFAR100')
+    train_dl, _ = load_data('CIFAR100')
     model = make_resnet34v2(train_dl).to(device)
 
     experiments = [
@@ -116,4 +117,4 @@ if 'run_test' in locals() and run_test == 5:
             Experiment('SPS coeff=0.05 no_moment', {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=1)
+    rec, trainers = run_experiments('CIFAR100', model, experiments, num_epochs=1)

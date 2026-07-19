@@ -91,7 +91,7 @@ class Trainer:
 
     def train(self, epochs=5):
         self.recorder.restart()
-        for num_epoch in range(epochs):
+        for _ in range(epochs):
             train_res = self._train_loop()
             self._report(train_res)
             if hasattr(self.scheduler, 'step'):
