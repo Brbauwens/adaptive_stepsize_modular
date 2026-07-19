@@ -1,12 +1,8 @@
 import torch
-torch.manual_seed(43)
 from tools.recorder import Recorder
-import numpy as np
+from tools.load_data import get_device
 
-
-device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-assert device == 'cuda', f"device is {device} but should be cuda"
-
+device = get_device()
 
 class Score:
     """ Accumulates loss and error over several chunks. 
@@ -28,8 +24,6 @@ class Score:
     def loss_and_error(self):
         return self.loss/self.count, self.mistakes/self.count
 
-
-
 class Trainer:
     """This class implements training in torch with learning rate shedules, in which shedules can be updated in each minibatch.
 
@@ -42,23 +36,22 @@ class Trainer:
     The output of the function batch_step of the scheduler controls what is recorded.
     """
 
-    def __init__(self, train_dl, test_dl, model, optimizer, scheduler=None, verbose=1):
-        self.device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-        assert device == 'cuda'
-        self.train_dl, self.test_dl                    =  train_dl,          test_dl  
+    def __init__(self, model, optimizer, scheduler=None, verbose=1, do_optimiser_step=True): #train_dl, test_dl, 
         self.model,    self.optimizer, self.scheduler  =  model.to(device),  optimizer,  scheduler
-        self.recorder  =  Recorder(verbose)
+        self.score_train = None
+        self.recorder   =  Recorder(verbose)
+        self.do_optimiser_step = do_optimiser_step
         if scheduler:
             assert hasattr(scheduler, 'batch_step') or hasattr(scheduler, 'step'), "Scheduler needs a 'step' or 'batch_step' function."
             assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
 
-    def test(self):
+    def test(self, test_dl):
         self.model.eval()
         score = Score()
         with torch.no_grad():
-            for x, y in self.test_dl:
-                y_pred = self.model(x.to(self.device))
-                score.update(y_pred, y.to(self.device))
+            for x, y in test_dl:
+                y_pred = self.model(x.to(device))
+                score.update(y_pred, y.to(device))
         return score.loss_and_error()
 
     def _compute_grad(self, x, y, score):
@@ -68,35 +61,27 @@ class Trainer:
         loss.backward()
         return loss, y_pred
 
-    def _step(self, x, y, score):
-        loss, y_pred = self._compute_grad(x, y, score)
+    def train_loop_init(self):
+        self.score_train = Score()
+        self.model.train()
+
+    def train_step(self, x, y):
+        loss, y_pred = self._compute_grad(x, y, self.score_train)
         quantity_dict = (sch := self.scheduler) is not None and hasattr(sch, 'batch_step') \
                 and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
-        self.optimizer.step()
+        if self.do_optimiser_step:
+            self.optimizer.step()
         self.recorder.record_batch(quantity_dict)
 
-    def _train_loop(self):
-        self.model.train()
-        score = Score()
-        for x, y in self.train_dl:
-            self._step(x.to(self.device), y.to(self.device), score)
-        return score.loss_and_error()
+    def train_loop_check(self, test_dl):
+        self._report(test_dl, self.score_train.loss_and_error())
 
-    def _report(self, train_res):
-        test_res = self.test()
+    def _report(self, test_dl, train_res):
+        test_res = self.test(test_dl)
         self.recorder.record_epoch({
                'train_loss' : train_res[0], 'train_error' : train_res[1], 
                 'test_loss' : test_res[0],   'test_error' : test_res[1], 
             })
-
-    def train(self, epochs=5):
-        self.recorder.restart()
-        for num_epoch in range(epochs):
-            train_res = self._train_loop()
-            self._report(train_res)
-            if hasattr(self.scheduler, 'step'):
-                self.scheduler.step()
-
 
 
 # Code for testing.
@@ -106,10 +91,10 @@ from torch.optim import SGD
 from lr_schedulers import SPSmaxScheduler
 
 if 'run_test' in locals() and run_test >= 1 :
-    from nets.basic import BasicTreeLayerNN
+    from nets.basic import BasicThreeLayerNN
 
     train_dl, test_dl = load_data('PointsDataset')
-    model = BasicTreeLayerNN(train_dl, 200, 20).to(device)
+    model = BasicThreeLayerNN(train_dl, 200, 20).to(device)
     optim = SGD(model.parameters(), lr=0.02, momentum=0.9, weight_decay=1e-3)
 
     sched = SPSmaxScheduler(optim, coeff=0.5)
