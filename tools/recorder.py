@@ -5,8 +5,6 @@ from collections import defaultdict
 from time import time
 import numpy as np
 
-    
-
 class BasicRecorder(defaultdict):
     """A recorder is a dictionary of lists. It stores snapshots in an experiment together with runtimes. 
     The _record function takes a dictionary as input, which represents a snapshot. 

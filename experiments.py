@@ -1,35 +1,11 @@
 import torch
-from torch.optim import SGD
+import os
 
-from tools.recorder import ExperimentsRecorder 
-from trainer import Trainer
+from tools.load_data import get_device
+from experiment import ExperimentSgd as Experiment, run_experiments
+from nets.cnn import make_resnet18v2, make_resnet34v2
 
-device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-
-class Experiment:
-    def __init__(self, name, quargs_SGD, scheduler, quargs_scheduler={}):
-        self.name             = name
-        self.quargs_SGD       = quargs_SGD
-        self.scheduler        = scheduler 
-        self.quargs_scheduler = quargs_scheduler
-
-def run_experiments(train_dl, test_dl, model, experiments, num_epochs=2):
-    exp_recorder  = ExperimentsRecorder()
-    initial_state = {k : v.clone() for k,v in model.state_dict().items()}
-    trainers = []
-    exp_recorder = ExperimentsRecorder()
-    for exp in experiments:
-        model.load_state_dict(initial_state)
-        print('\n' + exp.name)
-        optimizer = SGD(model.parameters(), **exp.quargs_SGD)
-        scheduler = None if exp.scheduler is None else exp.scheduler(optimizer, **exp.quargs_scheduler)
-        t = Trainer(train_dl, test_dl, model, optimizer, scheduler)
-        t.train(epochs=num_epochs)
-        trainers.append(t)
-        exp_recorder[exp.name] = t.recorder
-    return exp_recorder, trainers
-
-
+device = get_device()
 
 # =====================
 import sys 
@@ -38,31 +14,37 @@ from pathlib import Path
 if __name__ == '__main__' and Path(sys.argv[0]).stem not in {"ipython", "ipython3", "ipykernel_launcher"}:
     run_test = int(sys.argv[1])
 
-
 if 'run_test' in locals():
     from torchvision import datasets
-    from torch.optim import SGD
     from torch.optim.lr_scheduler import CosineAnnealingLR
 
     from tools.load_data import load_data
-    from nets.basic import BasicTreeLayerNN
+    from nets.basic import BasicThreeLayerNN
     from tools.recorder import recplot
     from lr_schedulers import SPSscheduler, SPScosineScheduler, SPSmaxScheduler
 
+    os.makedirs(".data_experiments", exist_ok=True)
 
 
 if 'run_test' in locals() and run_test == 2:
-    train_dl, test_dl = load_data('PointsDataset')
-    model = BasicTreeLayerNN(train_dl, 200, 20).to(device)
+    exp2_save_file = '.data_experiments/exp2.pth'
+    def clone_model2():
+        mdl = BasicThreeLayerNN(train_dl, 200, 20).to(device)
+        mdl.load_state_dict(torch.load(exp2_save_file, weights_only=True))
+        return mdl
 
-    num_epochs = 20
+    train_dl, test_dl = load_data('PointsDataset')
+    model = BasicThreeLayerNN(train_dl, 200, 20).to(device)
+    torch.save(model.state_dict(), exp2_save_file)
+
+    num_epochs = 2
     experiments = [
-            Experiment('basic SGD', {'lr' : 0.2}, None, {}), 
-            Experiment('SGD + cos', {'lr' : 0.2, 'weight_decay' : 1e-3}, CosineAnnealingLR, {'T_max' : num_epochs}), 
-            Experiment('SPS', {'momentum' : 0, 'weight_decay' : 1e-3}, SPSscheduler, {'coeff' : 0.4}), 
-            Experiment('SPS + moment', {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSscheduler, {'coeff' : 0.2}), 
-            Experiment('SPSmax + moment', {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSmaxScheduler, {'coeff' : 0.7}), 
-            Experiment('SPScos + moment', {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPScosineScheduler, {'coeff' : 0.2, 'num_epochs' : num_epochs}), 
+            Experiment('basic SGD', model, {'lr' : 0.2}, None, {}), 
+            Experiment('SGD + cos', clone_model2(), {'lr' : 0.2, 'weight_decay' : 1e-3}, CosineAnnealingLR, {'T_max' : num_epochs}), 
+            Experiment('SPS', clone_model2(), {'momentum' : 0, 'weight_decay' : 1e-3}, SPSscheduler, {'coeff' : 0.4}), 
+            Experiment('SPS + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSscheduler, {'coeff' : 0.2}), 
+            Experiment('SPSmax + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSmaxScheduler, {'coeff' : 0.7}), 
+            Experiment('SPScos + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPScosineScheduler, {'coeff' : 0.2, 'num_epochs' : num_epochs}), 
             #Experiment(
             #    'Net Line 2step', 
             #    {'momentum' : 0}, 
@@ -71,49 +53,67 @@ if 'run_test' in locals() and run_test == 2:
             #    ), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs)
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs)
     recplot(rec)
 
 
 if 'run_test' in locals() and run_test == 3:
+    exp3_save_file = '.data_experiments/exp3.pth'
+    def clone_model3():
+        mdl = BasicThreeLayerNN(train_dl, 200, 20).to(device)
+        mdl.load_state_dict(torch.load(exp3_save_file, weights_only=True))
+        return mdl
+
     train_dl, test_dl = load_data(datasets.CIFAR10)
-    model = BasicTreeLayerNN(train_dl, 200, 20).to(device)
+    model = BasicThreeLayerNN(train_dl, 200, 20).to(device)
+    torch.save(model.state_dict(), exp3_save_file)
 
     experiments = [
-            Experiment('basic SGD', {'lr' : 0.01}, None, {}), 
-            Experiment('SGD +moment +wd', {'lr' : 0.01, 'momentum' : 0.9, 'nesterov' : True, 'weight_decay' : 2.5e-4}, None, {}), 
-            Experiment('SPS coeff=0.05 no_moment', {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
-            Experiment('SPS coeff=0.04 momentum=0.5', {'momentum' : 0.5}, SPSscheduler, {'coeff' : 0.04}), 
-            Experiment('SPS coeff=0.01 moment=0.9', {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
+            Experiment('basic SGD', model, {'lr' : 0.01}, None, {}), 
+            Experiment('SGD +moment +wd', clone_model3(), {'lr' : 0.01, 'momentum' : 0.9, 'nesterov' : True, 'weight_decay' : 2.5e-4}, None, {}), 
+            Experiment('SPS coeff=0.05 no_moment', clone_model3(), {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
+            Experiment('SPS coeff=0.04 momentum=0.5', clone_model3(), {'momentum' : 0.5}, SPSscheduler, {'coeff' : 0.04}), 
+            Experiment('SPS coeff=0.01 moment=0.9', clone_model3(), {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=5)
-
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=5, verbose=True)
 
 if 'run_test' in locals() and run_test == 4:
-    from nets.cnn import make_resnet18v2
+    exp4_save_file = '.data_experiments/exp4.pth'
+    def clone_model4():
+        mdl = make_resnet18v2(train_dl).to(device)
+        mdl.load_state_dict(torch.load(exp4_save_file, weights_only=True))
+        return mdl
+
     train_dl, test_dl = load_data('CIFAR10')
     model = make_resnet18v2(train_dl).to(device)
+    torch.save(model.state_dict(), exp4_save_file)
 
     experiments = [
-            Experiment('basic SGD', {'lr' : 0.01}, None, {}), 
-            Experiment('SGD +moment +wd', {'lr' : 0.01, 'momentum' : 0.9, 'nesterov' : True, 'weight_decay' : 2.5e-4}, None, {}), 
-            Experiment('SPS coeff=0.05 no_moment', {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
-            Experiment('SPS coeff=0.04 momentum=0.5', {'momentum' : 0.5}, SPSscheduler, {'coeff' : 0.04}), 
-            Experiment('SPS coeff=0.01 moment=0.9', {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
+            Experiment('basic SGD', model, {'lr' : 0.01}, None, {}), 
+            Experiment('SGD +moment +wd', clone_model4(), {'lr' : 0.01, 'momentum' : 0.9, 'nesterov' : True, 'weight_decay' : 2.5e-4}, None, {}), 
+            Experiment('SPS coeff=0.05 no_moment', clone_model4(), {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
+            Experiment('SPS coeff=0.04 momentum=0.5', clone_model4(), {'momentum' : 0.5}, SPSscheduler, {'coeff' : 0.04}), 
+            Experiment('SPS coeff=0.01 moment=0.9', clone_model4(), {'momentum' : 0.9}, SPSscheduler, {'coeff' : 0.01}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=2)
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=True)
 
 
 if 'run_test' in locals() and run_test == 5:
-    from nets.cnn import make_resnet34v2
+    exp5_save_file = '.data_experiments/exp5.pth'
+    def clone_model5():
+        mdl = make_resnet18v2(train_dl).to(device)
+        mdl.load_state_dict(torch.load(exp5_save_file, weights_only=True))
+        return mdl
+
     train_dl, test_dl = load_data('CIFAR100')
-    model = make_resnet34v2(train_dl).to(device)
+    model = make_resnet18v2(train_dl).to(device)
+    torch.save(model.state_dict(), exp5_save_file)
 
     experiments = [
-            Experiment('basic SGD', {'lr' : 0.01}, None, {}), 
-            Experiment('SPS coeff=0.05 no_moment', {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
+            Experiment('basic SGD', model, {'lr' : 0.01}, None, {}), 
+            Experiment('SPS coeff=0.05 no_moment', clone_model5(), {'momentum' : 0}, SPSscheduler, {'coeff' : 0.08}), 
             ]
 
-    rec, trainers = run_experiments(train_dl, test_dl, model, experiments, num_epochs=1)
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=1, verbose=True)

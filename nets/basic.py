@@ -9,7 +9,7 @@ def in_out_dim(dataloader):
     return (np.prod(ds[0][0].shape), len(ds.classes))
 
 
-class BasicTreeLayerNN(nn.Module):
+class BasicThreeLayerNN(nn.Module):
     def __init__(self, dataloader, hidden1_width, hidden2_width):
         super().__init__()
 
