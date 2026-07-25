@@ -21,7 +21,7 @@ if 'run_test' in locals():
     from tools.load_data import load_data
     from nets.basic import BasicThreeLayerNN
     from tools.recorder import recplot
-    from lr_schedulers import SPSscheduler, SPScosineScheduler, SPSmaxScheduler
+    from optim.lr_schedulers import SPSscheduler, SPScosineScheduler, SPSmaxScheduler
 
     os.makedirs(".data_experiments", exist_ok=True)
 
