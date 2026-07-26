@@ -17,7 +17,10 @@ class AverageMeter:
         self.sum += val
 
     def avg(self):
-        return self.sum / self.count
+        if self.count == 0:
+            return .0
+        else:
+            return self.sum / self.count
 
 class AverageCyclicQueue:
     def __init__(self, queue_size, fill_value, device):

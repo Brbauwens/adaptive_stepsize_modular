@@ -71,12 +71,12 @@ class Trainer:
         if self.do_optimiser_step:
             self.optimizer.step()
 
+        self.recorder.record_batch(quantity_dict)
+
+    def train_loop_close(self, test_dl):
         if (self.scheduler is not None and hasattr(self.scheduler, 'step')):
             self.scheduler.step()
 
-        self.recorder.record_batch(quantity_dict)
-
-    def train_loop_check(self, test_dl):
         self._report(test_dl, self.score_train.loss_and_error())
 
     def _report(self, test_dl, train_res):
