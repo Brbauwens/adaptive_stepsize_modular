@@ -67,7 +67,7 @@ class Trainer:
     def train_step(self, x, y):
         loss, y_pred = self._compute_grad(x, y, self.score_train)
         quantity_dict = (sch := self.scheduler) is not None and hasattr(sch, 'batch_step') \
-                and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred) or {} 
+                and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
         if self.do_optimiser_step:
             self.optimizer.step()
 
