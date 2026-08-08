@@ -28,9 +28,8 @@ class Trainer:
     """This class implements training in torch with learning rate shedules, in which shedules can be updated in each minibatch.
 
     The constructor requires:
-    -- train_dl, test_dl: dataloaders for training and testing
     -- model, optimizer: a torch model and optimizer
-    -- optional, scheduler: any class that has a 'next' or 'next_batch' function. 
+    -- optional, scheduler: any class that has a 'batch_step' or 'step' function. 
 
     The Recorder class is used to track and plot quantities. 
     The output of the function batch_step of the scheduler controls what is recorded.
@@ -71,9 +70,13 @@ class Trainer:
                 and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
         if self.do_optimiser_step:
             self.optimizer.step()
+
         self.recorder.record_batch(quantity_dict)
 
-    def train_loop_check(self, test_dl):
+    def train_loop_close(self, test_dl):
+        if (self.scheduler is not None and hasattr(self.scheduler, 'step')):
+            self.scheduler.step()
+
         self._report(test_dl, self.score_train.loss_and_error())
 
     def _report(self, test_dl, train_res):
@@ -88,7 +91,7 @@ class Trainer:
 
 from tools.load_data import load_data
 from torch.optim import SGD
-from lr_schedulers import SPSmaxScheduler
+from optim.lr_schedulers import SPSmaxScheduler
 
 if 'run_test' in locals() and run_test >= 1 :
     from nets.basic import BasicThreeLayerNN
