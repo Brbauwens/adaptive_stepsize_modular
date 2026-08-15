@@ -142,15 +142,16 @@ if 'run_test' in locals() and run_test == 100:
     meta = MetaData(output_dim=10, device=device)
     EPOCHS_PER_EXPERIMENT = 20
 
-    max_lr = 0.02
+    lr0 = 1e-5
     val_momentum = 0.9
     #Net-line 2step
-    snl_opt = optim.SGD(model.parameters(), weight_decay=5e-3, lr=max_lr, momentum=val_momentum)
+    snl_opt = optim.SGD(model.parameters(), weight_decay=5e-3, lr=lr0, momentum=val_momentum)
     snl_sch = NetLineStepLR(net=model, optimizer=snl_opt, meta=meta, foreach=True)
     snl_sch.y_part = 0.0
     snl_sch.epochs_per_experiment = EPOCHS_PER_EXPERIMENT
     snl_sch.epochs_warmup = 3
 
+    max_lr = 0.02
     snl_sch.init_params()
     if snl_sch.la_alpha < 1.0:
         snl_sch.init_lookahead()
