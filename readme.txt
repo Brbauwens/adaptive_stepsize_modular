@@ -14,6 +14,6 @@ In tools/recorder.py there is a Recorder object that monitors and logs the train
 In tools/load_data.py there is a bit of messy code to load various datasets. 
 For debugging, there is an artificial fix to make the datasets smaller. 
 
-To see a demo of the code, run:
+To run a demo of the code, run:
 
 python experiments.py 2
