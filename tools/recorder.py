@@ -31,8 +31,9 @@ class Recorder(BasicRecorder):
        The main functions are 'record_batch' and 'record_epoch', the latter prints a summary every 'verbose' epochs.
        Minibatch information is stored as a list of lists per epoch.
        """
-    def __init__(self, verbose=0):
+    def __init__(self, experiment_name, verbose=0):
         super().__init__()
+        self.experiment_name = experiment_name
         self.num_epoch, self.verbose = 0, verbose
         self.restart()
 
@@ -59,7 +60,7 @@ class Recorder(BasicRecorder):
         if self.verbose >= 1 and self.num_epoch % self.verbose == 0:
             items = list(dct.items())[:num_items_shown]
             to_str = lambda k,v: f"{v*100:5.2f} %" if 'error' in k else f"{v:7.3}"
-            print(f"epoch {self.num_epoch:3d} | time {self.time():6.2f}", end='')
+            print(f"experiment {self.experiment_name} | epoch {self.num_epoch:3d} | time {self.time():6.2f}", end='')
             print(''.join([f' | {k} : {to_str(k,v)}' for k, v in items if type(v) is not list]))
             #with open("experiment_recording.pkl", "wb") as file:   
             #    pickle.dump(self, file)

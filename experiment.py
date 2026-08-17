@@ -29,7 +29,8 @@ def run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=False)
     trainers = []
     exp_recorder = ExperimentsRecorder()
     for exp in experiments:
-        tn = Trainer(exp.model, exp.optimizer, exp.scheduler, do_optimiser_step = hasattr(exp, 'do_optimiser_step') and exp.do_optimiser_step)
+        tn = Trainer(exp.model, exp.optimizer, exp.scheduler, experiment_name = exp.name, verbose = 1 if verbose else 0, \
+                     do_optimiser_step = hasattr(exp, 'do_optimiser_step') and exp.do_optimiser_step)
         trainers.append(tn)
         exp_recorder[exp.name] = tn.recorder
 

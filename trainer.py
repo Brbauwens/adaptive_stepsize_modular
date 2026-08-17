@@ -35,10 +35,11 @@ class Trainer:
     The output of the function batch_step of the scheduler controls what is recorded.
     """
 
-    def __init__(self, model, optimizer, scheduler=None, verbose=1, do_optimiser_step=True):
-        self.model,    self.optimizer, self.scheduler  =  model.to(device),  optimizer,  scheduler
+    def __init__(self, model, optimizer, scheduler=None, verbose=1, do_optimiser_step=True, experiment_name = None):
+        self.model, self.optimizer, self.scheduler  =  model.to(device), optimizer, scheduler
+        self.experiment_name = experiment_name if experiment_name is not None else type(optimizer).__name__
         self.score_train = None
-        self.recorder   =  Recorder(verbose)
+        self.recorder   =  Recorder(self.experiment_name, verbose)
         self.do_optimiser_step = do_optimiser_step
         if scheduler:
             assert hasattr(scheduler, 'batch_step') or hasattr(scheduler, 'step'), "Scheduler needs a 'step' or 'batch_step' function."
@@ -175,4 +176,3 @@ if 'compute' in locals() and compute:
                 }
         return {key : val for key, val in instructions.items() if key in self._report_step_quantities}
 """
-
