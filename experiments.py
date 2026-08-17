@@ -30,7 +30,6 @@ if 'run_test' in locals():
     os.makedirs(".data_experiments", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
 
-
 if 'run_test' in locals() and run_test == 2:
     exp2_save_file = '.data_experiments/exp2.pth'
     def clone_model2():
@@ -125,11 +124,20 @@ if 'run_test' in locals() and run_test == 5:
 
 if 'run_test' in locals() and run_test == 100:
 
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+
     logging.basicConfig(filename="logs/exp100.log",
                     level=logging.INFO,
                     format="%(levelname)s: %(asctime)s %(message)s")
 
-    exp100_save_file = '.data_experiments/exp100.pth'
+    args = sys.argv
+    if len(args) >= 3:
+        job_nr_str = args[2]
+    else:
+        job_nr_str = '0'
+
+    exp100_save_file = f'.data_experiments/exp100_{job_nr_str}.pth'
     def clone_model100():
         mdl = make_resnet18v2(train_dl).to(device)
         mdl.load_state_dict(torch.load(exp100_save_file, weights_only=True))
@@ -140,36 +148,35 @@ if 'run_test' in locals() and run_test == 100:
     torch.save(model.state_dict(), exp100_save_file)
 
     meta = MetaData(output_dim=10, device=device)
-    EPOCHS_PER_EXPERIMENT = 20
+    EPOCHS_PER_EXPERIMENT = 60
 
+    #Netline
     lr0 = 1e-5
+    max_lr = 0.02
     val_momentum = 0.9
-    #Net-line 2step
     snl_opt = optim.SGD(model.parameters(), weight_decay=5e-3, lr=lr0, momentum=val_momentum)
     snl_sch = NetLineStepLR(net=model, optimizer=snl_opt, meta=meta, foreach=True)
     snl_sch.y_part = 0.0
     snl_sch.epochs_per_experiment = EPOCHS_PER_EXPERIMENT
     snl_sch.epochs_warmup = 3
 
-    max_lr = 0.02
     snl_sch.init_params()
     if snl_sch.la_alpha < 1.0:
         snl_sch.init_lookahead()
     snl_sch.init_eta_averaging()
-    exp1 = ExperimentWithScheduler("Net-line", model, snl_opt, snl_sch, do_optimiser_step=False)
+    exp1 = ExperimentWithScheduler("netline", model, snl_opt, snl_sch, do_optimiser_step=False)
 
     #Lookahead
     model_lookahead = clone_model100()
     opt_sgd_lookahead = optim.SGD(model_lookahead.parameters(), lr=max_lr, momentum=val_momentum, weight_decay=5e-3)
     opt_lookahead = Lookahead(opt_sgd_lookahead)
     schd_lookahead = optim.lr_scheduler.CosineAnnealingLR(opt_lookahead, T_max=EPOCHS_PER_EXPERIMENT)
-    exp2 = ExperimentWithScheduler("Lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
+    exp2 = ExperimentWithScheduler("lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
 
-    #Sgd scheduled lr
+    #Sgd
     model_sgd = clone_model100()
     opt_sgd = optim.SGD(model_sgd.parameters(), lr=max_lr, momentum=val_momentum, weight_decay=5e-3)
     schd_sgd = optim.lr_scheduler.CosineAnnealingLR(opt_sgd, T_max=EPOCHS_PER_EXPERIMENT)
-    exp3 = ExperimentWithScheduler("SGD", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
+    exp3 = ExperimentWithScheduler("sgd-cosine", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
 
     rec, trainers = run_experiments(train_dl, test_dl, [exp1, exp2, exp3], num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
-    print(rec)

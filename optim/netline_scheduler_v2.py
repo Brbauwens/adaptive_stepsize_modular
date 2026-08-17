@@ -14,7 +14,7 @@ def snl_forward(net, images, force_evalmode):
     if force_evalmode == True:
         training = net.training
         net.train(False)
-        logging.info("##net-line: --==Explicit train forward==--")
+        logging.debug("##net-line: --==Explicit train forward==--")
         logits = net.forward(images)
         net.train(training)
         return logits
@@ -25,7 +25,7 @@ def eta(eta_test, delta_pq, delta_qq, norm_pq, norm_qq, epsilon, beta_min, verbo
     cos_phi = torch.sum(delta_pq*delta_qq)/torch.maximum(norm_pq*norm_qq, epsilon)
     eta_next = norm_pq*cos_phi*eta_test/torch.maximum(norm_qq, beta_min)
     if verbose:
-        logging.info("##net-line: cos(pp^qq)={}, norm_pq={}, norm_qq={}, eta_test={}, eta_raw={}, beta_min={}"\
+        logging.debug("##net-line: cos(pp^qq)={}, norm_pq={}, norm_qq={}, eta_test={}, eta_raw={}, beta_min={}"\
                     .format(cos_phi, norm_pq, norm_qq, eta_test, eta_next, beta_min))
     return eta_next, cos_phi
 
@@ -66,9 +66,9 @@ class NetLineStepLR:
 
         self._flag_check_no_backstep = False
 
-        self.lr0 = 1e-5
         self.lr_max = 2e-2
-        self.lr_sample = 2e-2
+        self.eta_target = 2e-2
+        self.eta_target_min = 1e-5
 
         self.epochs_per_experiment = 50
         self.epochs_warmup = 3
@@ -81,6 +81,7 @@ class NetLineStepLR:
         #self.averaging_middle_up = 0.1
         #self.averaging_middle_down = 0.1
         self._arctan_coeff = 4.0
+        self._eta_target_as_eta1 = False #deprecated
 
         self._epoch = 0
 
@@ -158,7 +159,9 @@ class NetLineStepLR:
         #    self.lr_averaging_check_down = 0.0
         #    self.lr_averaging_check_up = 0.0
 
-        self.lr_sample = cosine_annealing2_lr(self.lr_max, 0.0, 0, self.epochs_per_experiment, self._epoch)
+        self.eta_target = cosine_annealing2_lr(self.lr_max, 0.0, 0, self.epochs_per_experiment, self._epoch)
+        if self._eta_target_as_eta1:
+            self.optimizer.param_groups[0]['lr'] = max(self.eta_target, self.eta_target_min)
 
     def batch_step(self, x, y, y_pred, **kwargs):
         """Method to call in every minibatch together with step call in every epoch. Loss forward-backward performed externally
@@ -169,7 +172,7 @@ class NetLineStepLR:
         self.optimizer.step()
 
         with torch.no_grad():
-            return self._step_nl(labels, images, logitsG, eta_target = self.lr_sample, fixed_step = fixed_step)
+            return self._step_nl(labels, images, logitsG, eta_target = self.eta_target, fixed_step = fixed_step)
 
     def _step_nl(self, labels, images, logitsG, eta_target, fixed_step):
         net = self.net
@@ -179,22 +182,22 @@ class NetLineStepLR:
 
         logits0 = (logitsG if self.dropout_mode == False else snl_forward(net, images, force_evalmode=self.dropout_mode))
 
-        logging.info("##net-line: calculating pp")
+        logging.debug("##net-line: calculating pp")
         pp = F.one_hot(labels, meta.output_dim)
         qq0 = F.softmax(logits0, dim=1) ## all qqxx calculated with dropout-off/eval-mode
-        logging.info("##net-line: calculating learning rate")
+        logging.debug("##net-line: calculating learning rate")
         logits1 = snl_forward(net, images, force_evalmode=self.dropout_mode)
         qq1 = F.softmax(logits1, dim=1) #0-point, 1-neuron?
         delta_pq, delta_q1q = pp-qq0, qq1-qq0
 
-        logging.info("##net-line: calculating eta_preactivation")
+        logging.debug("##net-line: calculating eta_preactivation")
         eta2_raw_y = 0.0
         if self.y_part > 0.0:
             dz = (logits1-logits0)/eta1
             qqq = qq0[:,:,None]*(self._eye[None,:,:]-qq0[:,None,:])
             eta2_raw_y = torch.squeeze(torch.sum(delta_pq*dz)/torch.sum(dz[:,:,None]*qqq*dz[:,None,:]))
 
-        logging.info("##net-line: calculating eta_analytic_n2")
+        logging.debug("##net-line: calculating eta_analytic_n2")
         norm_pq, norm_qq1 = norm(delta_pq, ord='fro'), norm(delta_q1q, ord='fro')
         eta2_raw, cos_phi = eta(eta1, delta_pq, delta_q1q, norm_pq, norm_qq1, self.epsilon, self.beta_min, self.verbose)
 
@@ -210,9 +213,9 @@ class NetLineStepLR:
             eta2 = eta2_orig * alpha_full
 
         if self.verbose:
-            logging.info("##net-line: alpha_epoch={}, alpha_momentum={}, eta2_pre={}, eta2={}".\
+            logging.debug("##net-line: alpha_epoch={}, alpha_momentum={}, eta2_pre={}, eta2={}".\
                          format(self.alpha_epoch, self.alpha_momentum, eta2_pre, eta2))
-        logging.info("##net-line: shifting params to the rest of step")
+        logging.debug("##net-line: shifting params to the rest of step")
 
         do_lookahead = False
         if self.la_alpha < 1.0:
@@ -264,7 +267,7 @@ class NetLineStepLR:
                         torch._foreach_add_(params, self.la_state, alpha=1.0 - self.la_alpha)
                     torch._foreach_copy_(self.la_state, params)
 
-        logging.info("####net-line: step finish, returning step_result")
+        logging.debug("####net-line: step finish, returning step_result")
         return self.step_results(eta2, eta2_pre, norm_pq, norm_qq1, cos_phi, alpha_full, self.alpha_nomomentum, qq0)
 
     def step_results(self, eta, eta2_pre, pq_norm, qq_norm, cos_phi, alpha, alpha_nomomentum, qq0):
