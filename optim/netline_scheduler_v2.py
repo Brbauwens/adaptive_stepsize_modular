@@ -14,7 +14,7 @@ def snl_forward(net, images, force_evalmode):
     if force_evalmode == True:
         training = net.training
         net.train(False)
-        logging.debug("##net-line: --==Explicit train forward==--")
+        logging.info("##net-line: --==Explicit train forward==--")
         logits = net.forward(images)
         net.train(training)
         return logits
@@ -72,16 +72,8 @@ class NetLineStepLR:
 
         self.epochs_per_experiment = 50
         self.epochs_warmup = 3
-        #self.epochs_sampling = -1
-        #self.epochs_wide = -1
-        #self.epochs_middle = -1
-
-        #self.averaging_wide_up = 1.0
-        #self.averaging_wide_down = 1.0
-        #self.averaging_middle_up = 0.1
-        #self.averaging_middle_down = 0.1
         self._arctan_coeff = 4.0
-        self._eta_target_as_eta1 = False #deprecated
+        #self._eta_target_as_eta1 = False #deprecated
 
         self._epoch = 0
 
@@ -123,15 +115,12 @@ class NetLineStepLR:
     def calc_eta_averaging(self, eta):
         self._lr_averaging_queue.put_value(eta)
 
-        #if (self.lr_averaging_check_up >= 1.0 and self.lr_averaging_check_down >= 1.0):
-        #    return eta
-
         if not self._lr_averaging_queue._pos_cyclic:
-            return eta
+            return eta, eta
         else:
             eta_avg = self._lr_averaging_queue.get_avg()
             if (self.lr_averaging_check_up <= 0.0 and self.lr_averaging_check_down <= 0.0):
-                return eta_avg
+                return eta_avg, eta_avg
             else:
                 eta_delta0 = eta - eta_avg
                 eta_delta1 = eta_delta0
@@ -139,7 +128,7 @@ class NetLineStepLR:
                     eta_delta1 = eta_delta0*torch.where(torch.sign(eta_delta0) == self._one,\
                                                         self.lr_averaging_check_up, self.lr_averaging_check_down)
                 eta_delta = torch.arctan(eta_delta1*self._arctan_coeff/eta_avg)*eta_avg/self._arctan_coeff
-                return eta_avg + eta_delta
+                return eta_avg + eta_delta, eta_avg
 
     def step(self, epoch = None):
         """Method to call in every epoch for scheduler/optimiser params adjustment. It is called after the epoch's training loop
@@ -149,26 +138,17 @@ class NetLineStepLR:
 
         self._epoch += 1
 
-        #if self._epoch < self.epochs_wide:
-        #    self.lr_averaging_check_down = self.averaging_wide_down
-        #    self.lr_averaging_check_up = self.averaging_wide_up
-        #elif self._epoch < self.epochs_middle:
-        #    self.lr_averaging_check_down = self.averaging_middle_down
-        #    self.lr_averaging_check_up = self.averaging_middle_up
-        #else:
-        #    self.lr_averaging_check_down = 0.0
-        #    self.lr_averaging_check_up = 0.0
-
         self.eta_target = cosine_annealing2_lr(self.lr_max, 0.0, 0, self.epochs_per_experiment, self._epoch)
-        if self._eta_target_as_eta1:
-            self.optimizer.param_groups[0]['lr'] = max(self.eta_target, self.eta_target_min)
+        #if self._eta_target_as_eta1:
+        #    self.optimizer.param_groups[0]['lr'] = max(self.eta_target, self.eta_target_min)
 
     def batch_step(self, x, y, y_pred, **kwargs):
         """Method to call in every minibatch together with step call in every epoch. Loss forward-backward performed externally
         """
 
         images, labels, logitsG = x, y, y_pred
-        fixed_step = self._epoch < self.epochs_warmup or self._lr_averaging_queue._pos_cyclic == False
+        fixed_step = self._epoch < self.epochs_warmup or self._lr_averaging_queue._pos_cyclic == False\
+            or  self._epoch >= int(self.epochs_per_experiment*5/6)
         self.optimizer.step()
 
         with torch.no_grad():
@@ -180,7 +160,7 @@ class NetLineStepLR:
         optimizer = self.optimizer
         eta1 = optimizer.param_groups[0]['lr'] #1st step eta-size
 
-        logits0 = (logitsG if self.dropout_mode == False else snl_forward(net, images, force_evalmode=self.dropout_mode))
+        logits0 = (logitsG if self.dropout_mode == False else snl_forward(net, images, force_evalmode=True))
 
         logging.debug("##net-line: calculating pp")
         pp = F.one_hot(labels, meta.output_dim)
@@ -202,8 +182,8 @@ class NetLineStepLR:
         eta2_raw, cos_phi = eta(eta1, delta_pq, delta_q1q, norm_pq, norm_qq1, self.epsilon, self.beta_min, self.verbose)
 
         eta2_orig_pre = ((1.0 - self.y_part)*eta2_raw + self.y_part * eta2_raw_y)
-        eta2_orig = self.calc_eta_averaging(eta2_orig_pre)
-        eta2_orig_avg = self._lr_averaging_queue.get_avg()
+        eta2_orig, eta2_orig_avg = self.calc_eta_averaging(eta2_orig_pre)
+        #eta2_orig_avg = self._lr_averaging_queue.get_avg()
         self.alpha_nomomentum = torch.minimum(eta_target/(eta2_orig_avg*self.alpha_momentum), self.alpha_nomomentum_max)
         alpha_full = self.alpha_nomomentum*self.alpha_momentum
         if (fixed_step):

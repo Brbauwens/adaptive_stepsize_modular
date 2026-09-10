@@ -2,7 +2,6 @@
 import math, pickle, numbers, torch
 import matplotlib.pylab as plt
 from collections import defaultdict
-from time import time
 import numpy as np
 
 class BasicRecorder(defaultdict):
@@ -14,16 +13,17 @@ class BasicRecorder(defaultdict):
         self.restart()
 
     def restart(self):
-        self.tic = time()
+        self.time_aggregated = 0
 
-    def time(self):
-        return time() - self.tic
+    def time_add(self, delta):
+        self.time_aggregated += delta
+
+    def time_recorded(self):
+        return self.time_aggregated
 
     def _record(self, quantity_dict):
-        for quantity, value in (quantity_dict | {'runtimes' : self.time()}).items():
+        for quantity, value in (quantity_dict | {'runtimes' : self.time_recorded()}).items():
             self[quantity].append(value)
-        self.tic = time()
-
 
 
 class Recorder(BasicRecorder):
@@ -60,7 +60,7 @@ class Recorder(BasicRecorder):
         if self.verbose >= 1 and self.num_epoch % self.verbose == 0:
             items = list(dct.items())[:num_items_shown]
             to_str = lambda k,v: f"{v*100:5.2f} %" if 'error' in k else f"{v:7.3}"
-            print(f"experiment {self.experiment_name} | epoch {self.num_epoch:3d} | time {self.time():6.2f}", end='')
+            print(f"experiment {self.experiment_name} | epoch {self.num_epoch:3d} | time {self.time_recorded():6.2f}", end='')
             print(''.join([f' | {k} : {to_str(k,v)}' for k, v in items if type(v) is not list]))
             #with open("experiment_recording.pkl", "wb") as file:   
             #    pickle.dump(self, file)
