@@ -48,7 +48,8 @@ class Trainer:
         self.do_optimiser_step = do_optimiser_step
         if scheduler:
             assert hasattr(scheduler, 'batch_step') or hasattr(scheduler, 'step'), "Scheduler needs a 'step' or 'batch_step' function."
-            assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
+            if optimizer:
+                assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
 
     def test(self, test_dl):
         self.model.eval()
@@ -60,14 +61,24 @@ class Trainer:
         return score.loss_and_error()
 
     def _compute_grad_loss(self, x, y, score):
-        self.optimizer.zero_grad()
+        if self.optimizer is not None:
+            self.optimizer.zero_grad()
+        else:
+            self.scheduler.zero_grad()
+        if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
+            self.scheduler.batch_prestep()
         y_pred = self.model(x).squeeze()
         loss = score.update(y_pred, y)
         loss.backward()
         return loss, y_pred
 
     def _compute_grad(self, x, y):
-        self.optimizer.zero_grad()
+        if self.optimizer is not None:
+            self.optimizer.zero_grad()
+        else:
+            self.scheduler.zero_grad()
+        if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
+            self.scheduler.batch_prestep()
         y_pred = self.model(x).squeeze()
         loss = F.cross_entropy(y_pred, y)
         loss.backward()
@@ -91,7 +102,9 @@ class Trainer:
         self.recorder.time_add(time_elapsed)
 
     def train_loop_close(self, test_dl):
-        if (self.scheduler is not None and hasattr(self.scheduler, 'step')):
+        if (self.scheduler is not None and hasattr(self.scheduler, 'epoch_step')):
+            self.scheduler.epoch_step()
+        elif (self.scheduler is not None and hasattr(self.scheduler, 'step')):
             self.scheduler.step()
 
         if CALC_TRAIN_LOSS == False:

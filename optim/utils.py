@@ -52,3 +52,10 @@ def cosine_annealing2_lr(eta0, eta1, epoch_cos_start, epoch_cos_finish, epoch_cu
     if epoch_cos_finish <= epoch_curr:
         return eta1
     return eta1 + 0.5*(eta0-eta1)*(1+math.cos((epoch_curr-epoch_cos_start)*math.pi/(epoch_cos_finish-epoch_cos_start)))
+
+def line_annealing2_lr(eta0, eta1, epoch_line_start, epoch_line_finish, epoch_curr):
+    if epoch_curr < epoch_line_start:
+        return eta0
+    if epoch_line_finish <= epoch_curr:
+        return eta1
+    return eta0 + (eta1-eta0)*(epoch_curr-epoch_line_start)/(epoch_line_finish-epoch_line_start)
