@@ -8,6 +8,11 @@ import math
 import logging
 from optim.utils import AverageCyclicQueue, cosine_annealing2_lr, line_annealing2_lr, line_annealing4_lr
 
+class MetaData:
+    def __init__(self, output_dim = 10, device='cpu'):
+        self.device = device
+        self.output_dim = output_dim
+
 class NetLine(optim.Optimizer):
     def __init__(
         self,
@@ -286,11 +291,6 @@ class NetLine(optim.Optimizer):
         result['qq1'] = qq1
         return result
 
-
-class MetaData:
-    def __init__(self, output_dim = 10, device='cpu'):
-        self.device = device
-        self.output_dim = output_dim
 
 def eta(lr1, delta_pq, delta_qq, norm_pq, norm_qq, beta_min):
     dot_product = torch.sum(delta_pq*delta_qq)

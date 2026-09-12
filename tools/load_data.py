@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 debug = 0
-#paths = ["/opt/software/datasets/cifar/", "../data"]
-paths = ["../data"]
+paths = ["/opt/software/datasets/cifar/", "../data"]
+#paths = ["../data"]
 
 def load_data(dataset, train_transform=None, test_transform=None):
 
