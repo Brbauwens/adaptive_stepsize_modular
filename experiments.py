@@ -28,6 +28,12 @@ def get_job_nr(args):
     else:
         return '0'
 
+def get_epochs_per_exp(args):
+    if len(args) >= 4:
+        return int(args[3])
+    else:
+        return 50
+
 if __name__ == '__main__' and Path(sys.argv[0]).stem not in {"ipython", "ipython3", "ipykernel_launcher"}:
     run_test = int(sys.argv[1])
 
@@ -61,12 +67,6 @@ if 'run_test' in locals() and run_test == 2:
             Experiment('SPS + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSscheduler, {'coeff' : 0.2}), 
             Experiment('SPSmax + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPSmaxScheduler, {'coeff' : 0.7}), 
             Experiment('SPScos + moment', clone_model2(), {'momentum' : 0.9, 'weight_decay' : 1e-3}, SPScosineScheduler, {'coeff' : 0.2, 'num_epochs' : num_epochs}), 
-            #Experiment(
-            #    'Net Line 2step', 
-            #    {'momentum' : 0}, 
-            #    NetLine2StepScheduler, 
-            #    {'model' : model, 'alpha' : 0.0078, 'eta_test' : 1e-4, 'beta' : 1e-3}
-            #    ), 
             ]
 
     rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs)
@@ -139,13 +139,13 @@ if 'run_test' in locals() and run_test == 100:
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
 
-    logging.basicConfig(filename="logs/exp100.log",
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp100_{job_nr_str}.log",
                     level=logging.INFO,
                     format="%(levelname)s: %(asctime)s %(message)s")
 
-    job_nr_str = get_job_nr(sys.argv)
     meta = MetaData(output_dim=10, device=device)
-    EPOCHS_PER_EXPERIMENT = 50
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
 
     train_dl, test_dl = load_data('CIFAR10')
     model = make_resnet18v2(train_dl).to(device)
@@ -188,13 +188,13 @@ if 'run_test' in locals() and run_test == 110:
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
 
-    logging.basicConfig(filename="logs/exp110.log",
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp110_{job_nr_str}.log",
                     level=logging.INFO,
                     format="%(levelname)s: %(asctime)s %(message)s")
 
-    job_nr_str = get_job_nr(sys.argv)
     meta = MetaData(output_dim=100, device=device)
-    EPOCHS_PER_EXPERIMENT = 50
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
 
     train_dl, test_dl = load_data('CIFAR100')
     model = make_resnet18v2(train_dl).to(device)
