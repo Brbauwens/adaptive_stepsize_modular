@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 import math
 import logging
-from optim.utils import AverageCyclicQueue, cosine_annealing2_lr, line_annealing2_lr
+from optim.utils import AverageCyclicQueue, cosine_annealing2_lr, line_annealing2_lr, line_annealing4_lr
 
 class NetLine(optim.Optimizer):
     def __init__(
@@ -39,7 +39,7 @@ class NetLine(optim.Optimizer):
 
         self.epochs_per_experiment = 50
         self.epochs_warmup = 3
-        self.epochs_shutdown = 10
+        self.epochs_shutdown = 0
         self._arctan_coeff = 4.0
         self._epoch = 0
         self._one = torch.tensor(1.0).to(meta.device)
@@ -88,6 +88,9 @@ class NetLine(optim.Optimizer):
         self.eta_target = cosine_annealing2_lr(lr_max, 0.0, 0, EPOCHS_PER_EXPERIMENT, self._epoch)
 
         self._arctan_coeff = line_annealing2_lr(4.0, 20.0, EPOCHS_PER_EXPERIMENT/3, EPOCHS_PER_EXPERIMENT*2/3, self._epoch)
+        #TODO: check alternative arctan_coeff schedule
+        #self._arctan_coeff = \
+        #    line_annealing4_lr(20.0, 4.0, 4.0, 20.0, 0, EPOCHS_PER_EXPERIMENT/3, EPOCHS_PER_EXPERIMENT*2/3, EPOCHS_PER_EXPERIMENT, self._epoch)
 
     @torch.no_grad()
     def batch_step(self, x, y, y_pred, **kwargs):

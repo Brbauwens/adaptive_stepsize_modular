@@ -128,6 +128,9 @@ def modify_torchvision_resnet(resnet):
 
 def make_resnet18v2(dataloader):
     in_channels, num_classes = in_out_dim(dataloader)
+    return _make_resnet18v2(num_classes)
+
+def _make_resnet18v2(num_classes):
     model = resnet18(num_classes=num_classes)
     return modify_torchvision_resnet(model)
 
