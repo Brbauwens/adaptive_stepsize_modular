@@ -13,6 +13,8 @@ class MetaData:
         self.device = device
         self.output_dim = output_dim
 
+#TODO: support multi param_groups in model
+#TODO: support foreach mode
 class NetLine(optim.Optimizer):
     def __init__(
         self,
@@ -58,11 +60,14 @@ class NetLine(optim.Optimizer):
             "maximize": maximize
         }
         super().__init__(model.parameters(), defaults)
+        if len(self.param_groups) != 1:
+            raise ValueError("Model must have a single param_group")
 
     def __setstate__(self, state):
         super().__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault("maximize", False)
+        #for group in self.param_groups:
+        group = self.param_groups[0]
+        group.setdefault("maximize", False)
 
     def _init_group(self, group, params, grads, momentum_buffer_list):
         has_sparse_grad = False
@@ -93,9 +98,6 @@ class NetLine(optim.Optimizer):
         self.eta_target = cosine_annealing2_lr(lr_max, 0.0, 0, EPOCHS_PER_EXPERIMENT, self._epoch)
 
         self._arctan_coeff = line_annealing2_lr(4.0, 20.0, EPOCHS_PER_EXPERIMENT/3, EPOCHS_PER_EXPERIMENT*2/3, self._epoch)
-        #TODO: check alternative arctan_coeff schedule
-        #self._arctan_coeff = \
-        #    line_annealing4_lr(20.0, 4.0, 4.0, 20.0, 0, EPOCHS_PER_EXPERIMENT/3, EPOCHS_PER_EXPERIMENT*2/3, EPOCHS_PER_EXPERIMENT, self._epoch)
 
     @torch.no_grad()
     def batch_step(self, x, y, y_pred, **kwargs):
@@ -111,31 +113,25 @@ class NetLine(optim.Optimizer):
     @torch.no_grad()
     def batch_prestep(self):
 
-        for group in self.param_groups:
-            params: list[Tensor] = []
-            grads: list[Tensor] = []
-            momentum_buffer_list: list[Tensor | None] = []
+        #for group in self.param_groups:
+        group = self.param_groups[0]
+        params: list[Tensor] = []
+        grads: list[Tensor] = []
+        momentum_buffer_list: list[Tensor | None] = []
 
-            self._init_group(
-                group, params, grads, momentum_buffer_list
-            )
+        self._init_group(
+            group, params, grads, momentum_buffer_list
+        )
 
-            momentum=group["momentum"]
-            if momentum != 0:
-                for num, param in enumerate(params):
-                    buf = momentum_buffer_list[num]
-                    if buf is not None:
-                        buf.mul_(momentum)
-                        param.sub_(buf)
-                        stat = self.state[param]
-                        stat["momentum_buffer"] = buf
-
-            # update momentum_buffers in state
-            #for param, momentum_buffer in zip(
-            #    params, momentum_buffer_list, strict=True
-            #):
-            #    state = self.state[param]
-            #    state["momentum_buffer"] = momentum_buffer
+        momentum=group["momentum"]
+        if momentum != 0:
+            for num, param in enumerate(params):
+                buf = momentum_buffer_list[num]
+                if buf is not None:
+                    buf.mul_(momentum)
+                    param.sub_(buf)
+                    stat = self.state[param]
+                    stat["momentum_buffer"] = buf
 
     @torch.no_grad()
     def _batch_step(self, images, labels, logitsG, eta_target, fixed_step):
@@ -144,38 +140,39 @@ class NetLine(optim.Optimizer):
 
         result = None
 
-        for group in self.param_groups:
-            params: list[Tensor] = []
-            grads: list[Tensor] = []
-            momentum_buffer_list: list[Tensor | None] = []
+        #for group in self.param_groups:
+        group = self.param_groups[0]
+        params: list[Tensor] = []
+        grads: list[Tensor] = []
+        momentum_buffer_list: list[Tensor | None] = []
 
-            has_sparse_grad = self._init_group(
-                group, params, grads, momentum_buffer_list
-            )
+        has_sparse_grad = self._init_group(
+            group, params, grads, momentum_buffer_list
+        )
 
-            result = self._single_tensor_netline(
-                images=images,
-                labels=labels,
-                logits0=logitsG,
-                params=params,
-                grads=grads,
-                momentum_buffer_list=momentum_buffer_list,
-                weight_decay=group["weight_decay"],
-                momentum=group["momentum"],
-                eta1=group["lr1"],
-                maximize=group["maximize"],
-                #foreach=group["foreach"],
-                eta_target = eta_target,
-                fixed_step = fixed_step
-            )
+        result = self._single_tensor_netline(
+            images=images,
+            labels=labels,
+            logits0=logitsG,
+            params=params,
+            grads=grads,
+            momentum_buffer_list=momentum_buffer_list,
+            weight_decay=group["weight_decay"],
+            momentum=group["momentum"],
+            eta1=group["lr1"],
+            maximize=group["maximize"],
+            #foreach=group["foreach"],
+            eta_target = eta_target,
+            fixed_step = fixed_step
+        )
 
-            if group["momentum"] != 0:
-                # update momentum_buffers in state
-                for param, momentum_buffer in zip(
-                    params, momentum_buffer_list, strict=True
-                ):
-                    stat = self.state[param]
-                    stat["momentum_buffer"] = momentum_buffer
+        if group["momentum"] != 0:
+            # update momentum_buffers in state
+            for param, momentum_buffer in zip(
+                params, momentum_buffer_list, strict=True
+            ):
+                stat = self.state[param]
+                stat["momentum_buffer"] = momentum_buffer
 
         return result
 

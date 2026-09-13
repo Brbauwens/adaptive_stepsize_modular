@@ -96,6 +96,7 @@ class Trainer:
                 and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
         if self.do_optimiser_step:
             self.optimizer.step()
+        torch.cuda.current_stream().synchronize()
         time_elapsed = time() - time_start
 
         self.recorder.record_batch(quantity_dict)
