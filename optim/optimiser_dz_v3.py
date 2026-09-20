@@ -6,30 +6,23 @@ import torch.nn.functional as F
 
 import math
 import logging
-from optim.utils import AverageCyclicQueue, cosine_annealing2_lr, line_annealing2_lr, line_annealing4_lr
+from optim.utils import AverageCyclicQueue, MetaData, eta_calc
 
-class MetaData:
-    def __init__(self, output_dim = 10, device='cpu'):
-        self.device = device
-        self.output_dim = output_dim
 
 #TODO: support multi param_groups in model
 #TODO: support foreach mode
-class NetLine(optim.Optimizer):
+class NetDz(optim.Optimizer):
     def __init__(
         self,
         model: nn.Module,
         meta: MetaData,
         lr1: float = 1e-5,
-        lr_max: float = 2e-2,
         momentum: float = 0,
         weight_decay: float = 0,
         maximize: bool = False
     ) -> None:
         if lr1 < 0.0:
             raise ValueError(f"Invalid learning rate: {lr1}")
-        if lr_max < 0.0:
-            raise ValueError(f"Invalid learning rate: {lr_max}")
         if momentum < 0.0:
             raise ValueError(f"Invalid momentum value: {momentum}")
         if weight_decay < 0.0:
@@ -44,17 +37,12 @@ class NetLine(optim.Optimizer):
         self.do_shorten_lr_for_momentum = True #If momentum > 0, shorten lr by theoretical ratio |g|/|v|
         self.alpha_momentum = 1.0
 
-        self.epochs_per_experiment = 50
-        self.epochs_warmup = 3
-        self.epochs_shutdown = 0
         self._arctan_coeff = 4.0
-        self._epoch = 0
         self._one = torch.tensor(1.0).to(meta.device)
         self._eye = torch.eye(meta.output_dim, dtype=torch.float).to(meta.device)
 
         defaults = {
             "lr1": lr1,
-            "lr_max": lr_max,
             "momentum": momentum,
             "weight_decay": weight_decay,
             "maximize": maximize
@@ -62,6 +50,8 @@ class NetLine(optim.Optimizer):
         super().__init__(model.parameters(), defaults)
         if len(self.param_groups) != 1:
             raise ValueError("Model must have a single param_group")
+
+        self.init_vars()
 
     def __setstate__(self, state):
         super().__setstate__(state)
@@ -85,31 +75,6 @@ class NetLine(optim.Optimizer):
 
         return has_sparse_grad
 
-    def epoch_step(self, epoch = None):
-        """Method to call in every epoch for scheduler/optimiser params adjustment. It is called after the epoch's training loop
-        """
-        if epoch is not None:
-            self._epoch = epoch
-
-        self._epoch += 1
-
-        EPOCHS_PER_EXPERIMENT = self.epochs_per_experiment
-        lr_max = self.param_groups[0]['lr_max']
-        self.eta_target = cosine_annealing2_lr(lr_max, 0.0, 0, EPOCHS_PER_EXPERIMENT, self._epoch)
-
-        self._arctan_coeff = line_annealing2_lr(4.0, 20.0, EPOCHS_PER_EXPERIMENT/3, EPOCHS_PER_EXPERIMENT*2/3, self._epoch)
-
-    @torch.no_grad()
-    def batch_step(self, x, y, y_pred, **kwargs):
-        """Method to call in every minibatch together with step call in every epoch. Loss forward-backward performed externally
-        """
-
-        images, labels, logitsG = x, y, y_pred
-
-        fixed_step = self._epoch < self.epochs_warmup or self._epoch >= (self.epochs_per_experiment - self.epochs_shutdown) \
-            or self._lr_averaging_queue._pos_cyclic == False
-        return self._batch_step(images, labels, logitsG, eta_target = self.eta_target, fixed_step = fixed_step)
-
     @torch.no_grad()
     def batch_prestep(self):
 
@@ -132,6 +97,17 @@ class NetLine(optim.Optimizer):
                     param.sub_(buf)
                     stat = self.state[param]
                     stat["momentum_buffer"] = buf
+
+    @torch.no_grad()
+    def batch_step(self, x, y, y_pred, eta_target, epoch_fixed_step = False, arctan_coeff = None, **kwargs):
+        """Method to call in every minibatch together with step call in every epoch. Loss forward-backward performed externally
+        """
+
+        images, labels, logitsG = x, y, y_pred
+
+        fixed_step = epoch_fixed_step or self._lr_averaging_queue._pos_cyclic == False
+        if arctan_coeff is not None: self._arctan_coeff = arctan_coeff
+        return self._batch_step(images, labels, logitsG, eta_target = eta_target, fixed_step = fixed_step)
 
     @torch.no_grad()
     def _batch_step(self, images, labels, logitsG, eta_target, fixed_step):
@@ -219,13 +195,19 @@ class NetLine(optim.Optimizer):
         qq1 = F.softmax(logits1, dim=1)
         delta_pq, delta_q1q = pp-qq0, qq1-qq0
         norm_pq, norm_qq1 = norm(delta_pq, ord='fro'), norm(delta_q1q, ord='fro')
-        eta2_raw, cos_phi = eta(eta1, delta_pq, delta_q1q, norm_pq, norm_qq1, self.beta_min)
+        eta2_raw, cos_phi = eta_calc(eta1, delta_pq, delta_q1q, norm_pq, norm_qq1, self.beta_min)
 
-        #dz = (logits1-logits0)/eta1
-        #qqq = qq0[:,:,None]*(self._eye[None,:,:]-qq0[:,None,:])
-        #eta2_raw_y = torch.squeeze(torch.sum(delta_pq*dz)/torch.sum(dz[:,:,None]*qqq*dz[:,None,:]))
+        pt_pq_scalar = torch.sum(delta_pq*delta_q1q, dim=1)
+        pt_pq_norm = torch.sum(delta_pq*delta_pq, dim=1) ** .5
+        pt_q1q_norm = torch.sum(delta_q1q*delta_q1q, dim=1) ** .5
+        pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm)
+        pt_mask = torch.where(pt_cos > 0.25, 1.0, 0.0)
 
-        eta2_orig_pre = eta2_raw
+        dz = (logits1-logits0)/eta1
+        qqq = pt_mask[:,None,None]*qq0[:,:,None]*(self._eye[None,:,:]-qq0[:,None,:])
+        eta2_raw_y = torch.squeeze(torch.sum(pt_mask[:,None]*delta_pq*dz)/torch.sum(dz[:,:,None]*qqq*dz[:,None,:]))
+
+        eta2_orig_pre = eta2_raw_y
         eta2_orig, eta2_orig_avg = self._calc_eta_averaging(eta2_orig_pre)
         self.alpha_nomomentum = eta_target/(eta2_orig_avg*self.alpha_momentum)
         alpha_full = self.alpha_nomomentum*self.alpha_momentum
@@ -235,7 +217,7 @@ class NetLine(optim.Optimizer):
             eta2_pre = eta2_orig_pre * alpha_full
             eta2 = eta2_orig * alpha_full
 
-        logging.debug(f"##net-line: alpha_nomomentum={self.alpha_nomomentum}, alpha_momentum={self.alpha_momentum}, eta2_pre={eta2_pre}, eta2={eta2}")
+        logging.debug(f"##net-line: alpha_nomomentum={self.alpha_nomomentum}, alpha_momentum={self.alpha_momentum}, eta1={eta1}, eta2_pre={eta2_pre}, eta2={eta2}")
 
         #Large step
         eta2_shift = eta2.add(-eta1)
@@ -247,20 +229,12 @@ class NetLine(optim.Optimizer):
 
         return self._step_results(eta2, eta2_pre, norm_pq, norm_qq1, cos_phi, alpha_full, self.alpha_nomomentum, qq1)
 
-    def init(self):
+    def init_vars(self):
         momentum = self.param_groups[0]['momentum']
         self.alpha_momentum = math.sqrt(1-momentum**2) \
             if momentum > 0.0 and self.do_shorten_lr_for_momentum else 1.0
 
         self._init_eta_averaging()
-        self.epoch_step(epoch = -1)
-
-    #def _reset(self, model: nn.Module):
-    #    logging.info(f"##net-line: reset is performing, epoch={self._epoch}")
-    #    self._init_eta_averaging()
-    #    self.model = model
-    #    super().__init__(model.parameters(), self.defaults)
-        #self.state = defaultdict(dict)
 
     def _init_eta_averaging(self):
         self._lr_averaging_queue = AverageCyclicQueue(queue_size = self.lr_averaging_queue_size, fill_value = 0.02, device = self.meta.device)
@@ -272,7 +246,7 @@ class NetLine(optim.Optimizer):
             return eta, eta
         else:
             eta_avg = self._lr_averaging_queue.get_avg()
-            eta_delta0 = eta - eta_avg
+            eta_delta0 = (eta - eta_avg)
             eta_delta = torch.arctan(eta_delta0*self._arctan_coeff/eta_avg)*eta_avg/self._arctan_coeff
             return eta_avg + eta_delta, eta_avg
 
@@ -287,11 +261,3 @@ class NetLine(optim.Optimizer):
         result['alpha_nomomentum'] = alpha_nomomentum
         result['qq1'] = qq1
         return result
-
-
-def eta(lr1, delta_pq, delta_qq, norm_pq, norm_qq, beta_min):
-    dot_product = torch.sum(delta_pq*delta_qq)
-    cos_phi = dot_product/(norm_pq*norm_qq)
-    lr2 = norm_pq*cos_phi*lr1/torch.maximum(norm_qq, beta_min)
-    logging.debug(f"##net-line: cos phi={cos_phi}, dot_product={dot_product}, norm_pq={norm_pq}, norm_qq={norm_qq}, lr1={lr1}, lr2_raw={lr2}")
-    return lr2, cos_phi

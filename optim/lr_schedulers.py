@@ -4,7 +4,7 @@ from torch.nn.functional import one_hot
 from torch.nn.utils import clip_grad_norm_
 
 device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-assert device == 'cuda'
+#assert device == 'cuda'
 
 
 @torch.no_grad()

@@ -1,6 +1,12 @@
 import torch
 
 import math
+import logging
+
+class MetaData:
+    def __init__(self, output_dim = 10, device='cpu'):
+        self.device = device
+        self.output_dim = output_dim
 
 class AverageMeter:
     def __init__(self):
@@ -79,3 +85,10 @@ def line_annealing4_lr(eta0, eta1, eta2, eta3, epoch_pre, epoch_start, epoch_mid
     if epoch_start <= epoch_curr and epoch_curr < epoch_middle:
         return eta1 + (eta2-eta1)*((epoch_curr-epoch_start)/(epoch_middle-epoch_start))
     return eta2 + (eta3-eta2)*((epoch_curr-epoch_middle)/(epoch_finish-epoch_middle))
+
+def eta_calc(lr1, delta_pq, delta_qq, norm_pq, norm_qq, beta_min):
+    dot_product = torch.sum(delta_pq*delta_qq)
+    cos_phi = dot_product/(norm_pq*norm_qq)
+    lr2 = norm_pq*cos_phi*lr1/torch.maximum(norm_qq, beta_min)
+    logging.debug(f"##net-line: cos phi={cos_phi}, dot_product={dot_product}, norm_pq={norm_pq}, norm_qq={norm_qq}, lr1={lr1}, lr2_raw={lr2}")
+    return lr2, cos_phi

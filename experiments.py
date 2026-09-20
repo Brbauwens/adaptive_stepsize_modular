@@ -7,7 +7,10 @@ from datetime import datetime
 
 from tools.load_data import get_device, load_data
 from experiment import ExperimentSgd as Experiment, ExperimentScheduler as ExperimentWithScheduler, run_experiments
-from optim.netline_scheduler_v3 import NetLine, MetaData
+from optim.optimiser_netline_v3 import NetLine
+from optim.optimiser_dz_v3 import NetDz
+from optim.scheduler_netline import CosineAnnealingNetLine
+from optim.utils import MetaData
 from nets.cnn import make_resnet18v2, _make_resnet18v2, make_resnet34v2
 from optim.optimizer_pack1 import Lookahead
 
@@ -136,8 +139,8 @@ if 'run_test' in locals() and run_test == 5:
 
 if 'run_test' in locals() and run_test == 100:
 
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
+    #torch.backends.cuda.matmul.allow_tf32 = False
+    #torch.backends.cudnn.allow_tf32 = False
 
     job_nr_str = get_job_nr(sys.argv)
     logging.basicConfig(filename=f"logs/exp100_{job_nr_str}.log",
@@ -150,19 +153,25 @@ if 'run_test' in locals() and run_test == 100:
     train_dl, test_dl = load_data('CIFAR10')
     model = make_resnet18v2(train_dl).to(device)
 
-    #Netline
-    lr1 = 1e-5
+    lr1 = 5e-5
     lr_max = 0.02
     val_momentum = 0.9
-    snl_sch = NetLine(model=model, meta=meta, lr1=lr1, lr_max=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    snl_sch.lr_averaging_queue_size = 50
-    snl_sch._arctan_coeff = 4.0
-    snl_sch.epochs_per_experiment = EPOCHS_PER_EXPERIMENT
-    snl_sch.epochs_warmup = 3
-    snl_sch.epochs_shutdown = 0
-    snl_sch.init()
 
-    exp_netline = ExperimentWithScheduler("netline", model, None, snl_sch, do_optimiser_step=False)
+    #Netline
+    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3)
+    nl_opt.lr_averaging_queue_size = 50
+    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 3, epochs_shutdown = 0)
+    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
+
+    #Dz
+    model_dz = clone_resnet18v2(model, meta)
+
+    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3)
+    dz_opt.lr_averaging_queue_size = 50
+    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 3, epochs_shutdown = 0)
+    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
 
     #Lookahead
     model_lookahead = clone_resnet18v2(model, meta)
@@ -179,14 +188,14 @@ if 'run_test' in locals() and run_test == 100:
 
     print(f"Experiment {job_nr_str} for {EPOCHS_PER_EXPERIMENT} epochs "+\
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_sgd, exp_lookahead],\
+    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 if 'run_test' in locals() and run_test == 110:
 
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
+    #torch.backends.cuda.matmul.allow_tf32 = False
+    #torch.backends.cudnn.allow_tf32 = False
 
     job_nr_str = get_job_nr(sys.argv)
     logging.basicConfig(filename=f"logs/exp110_{job_nr_str}.log",
@@ -200,18 +209,20 @@ if 'run_test' in locals() and run_test == 110:
     model = make_resnet18v2(train_dl).to(device)
 
     #Netline
-    lr1 = 1e-5
-    lr_max = 0.02
-    val_momentum = 0.9
-    snl_sch = NetLine(model=model, meta=meta, lr1=lr1, lr_max=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    snl_sch.lr_averaging_queue_size = 50
-    snl_sch._arctan_coeff = 4.0
-    snl_sch.epochs_per_experiment = EPOCHS_PER_EXPERIMENT
-    snl_sch.epochs_warmup = 3
-    snl_sch.epochs_shutdown = 0
-    snl_sch.init()
+    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3)
+    nl_opt.lr_averaging_queue_size = 50
+    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 3, epochs_shutdown = 0)
+    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
 
-    exp_netline = ExperimentWithScheduler("netline", model, None, snl_sch, do_optimiser_step=False)
+    #Dz
+    model_dz = clone_resnet18v2(model, meta)
+
+    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3)
+    dz_opt.lr_averaging_queue_size = 50
+    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 3, epochs_shutdown = 0)
+    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
 
     #Lookahead
     model_lookahead = clone_resnet18v2(model, meta)
@@ -228,6 +239,6 @@ if 'run_test' in locals() and run_test == 110:
 
     print(f"Experiment {job_nr_str} for {EPOCHS_PER_EXPERIMENT} epochs "+\
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_sgd, exp_lookahead],\
+    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
