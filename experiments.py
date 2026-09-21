@@ -208,6 +208,10 @@ if 'run_test' in locals() and run_test == 110:
     train_dl, test_dl = load_data('CIFAR100')
     model = make_resnet18v2(train_dl).to(device)
 
+    lr1 = 5e-5
+    lr_max = 0.02
+    val_momentum = 0.9
+
     #Netline
     nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3)
     nl_opt.lr_averaging_queue_size = 50
