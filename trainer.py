@@ -73,10 +73,7 @@ class Trainer:
         return loss, y_pred
 
     def _compute_grad(self, x, y):
-        if self.optimizer is not None:
-            self.optimizer.zero_grad()
-        else:
-            self.scheduler.zero_grad()
+        self.optimizer.zero_grad()
         if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
             self.scheduler.batch_prestep()
         y_pred = self.model(x).squeeze()
@@ -103,9 +100,7 @@ class Trainer:
         self.recorder.time_add(time_elapsed)
 
     def train_loop_close(self, test_dl):
-        if (self.scheduler is not None and hasattr(self.scheduler, 'epoch_step')):
-            self.scheduler.epoch_step()
-        elif (self.scheduler is not None and hasattr(self.scheduler, 'step')):
+        if (self.scheduler is not None):
             self.scheduler.step()
 
         if CALC_TRAIN_LOSS == False:

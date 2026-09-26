@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 import math
 import logging
-from optim.utils import AverageCyclicQueue, MetaData, eta_calc
+from optim.utils import AverageCyclicQueue, MetaData
 
 
 #TODO: support multi param_groups in model
@@ -30,7 +30,6 @@ class NetDz(optim.Optimizer):
 
         self.model = model
         self.meta = meta
-        self.beta_min = torch.tensor(1e-20).to(meta.device)
         self.lr_averaging_queue_size = 50
         self._lr_averaging_queue = None
 
@@ -194,8 +193,6 @@ class NetDz(optim.Optimizer):
         logits1 = self.model.forward(images)
         qq1 = F.softmax(logits1, dim=1)
         delta_pq, delta_q1q = pp-qq0, qq1-qq0
-        norm_pq, norm_qq1 = norm(delta_pq, ord='fro'), norm(delta_q1q, ord='fro')
-        eta2_raw, cos_phi = eta_calc(eta1, delta_pq, delta_q1q, norm_pq, norm_qq1, self.beta_min)
 
         pt_pq_scalar = torch.sum(delta_pq*delta_q1q, dim=1)
         pt_pq_norm = torch.sum(delta_pq*delta_pq, dim=1) ** .5
@@ -227,7 +224,7 @@ class NetDz(optim.Optimizer):
             if momentum != 0:
                 momentum_buffer_list[num].add_(param_shift2)
 
-        return self._step_results(eta2, eta2_pre, norm_pq, norm_qq1, cos_phi, alpha_full, self.alpha_nomomentum, qq1)
+        return self._step_results(eta2, eta2_pre, alpha_full, self.alpha_nomomentum, qq1)
 
     def init_vars(self):
         momentum = self.param_groups[0]['momentum']
@@ -250,13 +247,10 @@ class NetDz(optim.Optimizer):
             eta_delta = torch.arctan(eta_delta0*self._arctan_coeff/eta_avg)*eta_avg/self._arctan_coeff
             return eta_avg + eta_delta, eta_avg
 
-    def _step_results(self, eta, eta2_pre, pq_norm, qq_norm, cos_phi, alpha, alpha_nomomentum, qq1):
+    def _step_results(self, eta, eta2_pre, alpha, alpha_nomomentum, qq1):
         result = {}
         result['eta'] = eta
         result['eta2_pre'] = eta2_pre
-        result['pq_norm'] = pq_norm
-        result['qq_norm'] = qq_norm
-        result['cos_phi'] = cos_phi
         result['alpha'] = alpha
         result['alpha_nomomentum'] = alpha_nomomentum
         result['qq1'] = qq1
