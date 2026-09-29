@@ -47,7 +47,7 @@ class Trainer:
         self.recorder   =  Recorder(self.experiment_name, verbose)
         self.do_optimiser_step = do_optimiser_step
         if scheduler:
-            assert hasattr(scheduler, 'batch_step') or hasattr(scheduler, 'step'), "Scheduler needs a 'step' or 'batch_step' function."
+            assert hasattr(scheduler, 'step'), "Scheduler must have method 'step."
             if optimizer:
                 assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
 
@@ -109,7 +109,12 @@ class Trainer:
             self._report(test_dl, self.score_train.loss_and_error())
 
     def _report(self, test_dl, train_res):
+        optimiseForLookAhead = hasattr(self.optimizer, 'la_alpha') and self.optimizer.la_alpha < 1.0
+        if optimiseForLookAhead:
+            self.optimizer._backup_and_load_cache()
         test_res = self.test(test_dl)
+        if optimiseForLookAhead:
+            self.optimizer._clear_and_load_backup()
         if train_res is None:
             self.recorder.record_epoch({
                     'test_loss' : test_res[0],   'test_error' : test_res[1], 
