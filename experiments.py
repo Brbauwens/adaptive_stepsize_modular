@@ -146,7 +146,7 @@ lr1 = 5e-5
 lr_max = 0.02
 val_momentum = 0.9
 la_steps=5
-la_alpha=0.9
+la_alpha=0.8
 
 def format_params():
     return f"lr1={lr1}, lr_max={lr_max}, momentum={val_momentum}, la_steps={la_steps}, la_alpha={la_alpha}"
