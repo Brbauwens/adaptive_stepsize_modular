@@ -128,13 +128,13 @@ train_transform_svhn = transforms.Compose([
 test_transform_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize(*stats_svhn)])
 
 def load_SVHN():
-    DATASET_PATH = "/opt/software/datasets/svhn/"
+    DATASET_PATH = "../data/SVHN/"
     BATCH_SIZE = 128
     train_dataset = datasets.SVHN(root=DATASET_PATH, split='train', download=True, transform=train_transform_svhn)
     test_dataset = datasets.SVHN(root=DATASET_PATH, split='test', download=True, transform=test_transform_svhn)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1024, num_workers=0, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=1024, num_workers=2, pin_memory=True)
     return train_dataloader, test_dataloader
 
 class LimitedDataLoader(DataLoader):
