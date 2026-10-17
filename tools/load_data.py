@@ -18,7 +18,8 @@ def load_data(dataset, train_transform=None, test_transform=None):
             "MNIST"         : load_MNIST, 
             "CIFAR10"       : load_CIFAR10, 
             "CIFAR100"      : load_CIFAR100, 
-            "PointsDataset" : load_pointsDataset
+            "PointsDataset" : load_pointsDataset,
+            "SVHN"          : load_SVHN
             }
     if dataset in data2func:
         return data2func[dataset]()
@@ -115,6 +116,26 @@ def load_CIFAR10():
 def load_CIFAR100():
     return _load_data(datasets.CIFAR100, train_transform=train_transform_cifar, test_transform=test_transform_cifar)
 
+stats_svhn = ((0.4377, 0.4438, 0.4728), (0.1980, 0.2010, 0.1970))
+
+train_transform_svhn = transforms.Compose([
+    transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize(*stats_svhn,inplace=True)
+])
+
+test_transform_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize(*stats_svhn)])
+
+def load_SVHN():
+    DATASET_PATH = "/opt/software/datasets/svhn/"
+    BATCH_SIZE = 128
+    train_dataset = datasets.SVHN(root=DATASET_PATH, split='train', download=True, transform=train_transform_svhn)
+    test_dataset = datasets.SVHN(root=DATASET_PATH, split='test', download=True, transform=test_transform_svhn)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=1024, num_workers=0, pin_memory=True)
+    return train_dataloader, test_dataloader
 
 class LimitedDataLoader(DataLoader):
     """Class that reduces the size of the training set for debugging.""" 
@@ -133,8 +154,6 @@ class LimitedDataLoader(DataLoader):
 
     def __len__(self):
         return min(super().__len__(), self.max_batches)
-
-
 
 class PointsDataset(Dataset):
     """

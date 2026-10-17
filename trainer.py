@@ -47,7 +47,8 @@ class Trainer:
         self.recorder   =  Recorder(self.experiment_name, verbose)
         self.do_optimiser_step = do_optimiser_step
         if scheduler:
-            assert hasattr(scheduler, 'step'), "Scheduler must have method 'step."
+            assert hasattr(scheduler, 'step') or hasattr(scheduler, 'batch_step'), \
+                f"Scheduler of type {scheduler.__class__.__name__} must have method 'step."
             if optimizer:
                 assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
 
@@ -100,7 +101,7 @@ class Trainer:
         self.recorder.time_add(time_elapsed)
 
     def train_loop_close(self, test_dl):
-        if (self.scheduler is not None):
+        if (self.scheduler is not None and hasattr(self.scheduler, 'step')):
             self.scheduler.step()
 
         if CALC_TRAIN_LOSS == False:
