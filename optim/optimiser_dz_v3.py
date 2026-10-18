@@ -19,6 +19,7 @@ class NetDz(NetOptimizer):
         lr1: float = 1e-5,
         momentum: float = 0,
         weight_decay: float = 0,
+        linearity_coeff: float = 0.05,
         maximize: bool = False,
         foreach=True,
         lookahead_steps=5,
@@ -34,6 +35,8 @@ class NetDz(NetOptimizer):
             raise ValueError(f"Invalid lookahead_steps value: {lookahead_steps}")
         if lookahead_alpha < 0.0 or 1.0 < lookahead_alpha:
             raise ValueError(f"Invalid lookahead_alpha value: {lookahead_alpha}")
+        if linearity_coeff <= 0.0:
+            raise ValueError(f"Invalid linearity_coeff value: {linearity_coeff}")
 
         self.model = model
         self.meta = meta
@@ -41,7 +44,7 @@ class NetDz(NetOptimizer):
         self.do_shorten_lr_for_momentum = True #If momentum > 0, shorten lr by theoretical ratio |g|/|v|
         self.alpha_momentum = 1.0
 
-        self._arctan_coeff = 4.0
+        #self._arctan_coeff = 4.0
         self._one = torch.tensor(1.0).to(meta.device)
         self._eye = torch.eye(meta.output_dim, dtype=torch.float).to(meta.device)
 
@@ -50,7 +53,8 @@ class NetDz(NetOptimizer):
             "momentum": momentum,
             "weight_decay": weight_decay,
             "maximize": maximize,
-            "foreach": foreach
+            "foreach": foreach,
+            "linearity_coeff": linearity_coeff
         }
         super().__init__(model.parameters(), defaults, lookahead_steps, lookahead_alpha)
         #if len(self.param_groups) != 1:

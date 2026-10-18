@@ -26,6 +26,7 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
 
         self.lr_averaging_queue_size = 50
         self._lr_averaging_queue = None
+        self._linearity_coeff_default = 0.05
 
         self.init_lookahead()
 
@@ -60,9 +61,12 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
         if not self._lr_averaging_queue._pos_cyclic:
             return eta, eta
         else:
+            linearity_coeff = self.param_groups[0]["linearity_coeff"]
+            if linearity_coeff <= 0: linearity_coeff = self._linearity_coeff_default
+
             eta_avg = self._lr_averaging_queue.get_avg()
             eta_delta0 = (eta - eta_avg)
-            eta_delta = torch.arctan(eta_delta0*self._arctan_coeff/eta_avg)*eta_avg/self._arctan_coeff
+            eta_delta = torch.arctan(eta_delta0/(eta_avg*linearity_coeff))*eta_avg*linearity_coeff
             return eta_avg + eta_delta, eta_avg
 
     @torch.no_grad()
@@ -88,14 +92,13 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
                         stat["momentum_buffer"] = buf
 
     @torch.no_grad()
-    def batch_step(self, x, y, y_pred, eta_target, epoch_fixed_step = False, arctan_coeff = None, **kwargs):
+    def batch_step(self, x, y, y_pred, eta_target, epoch_fixed_step = False, **kwargs):
         """Method to call in every minibatch together with step call in every epoch. Loss forward-backward performed externally
         """
 
         images, labels, logitsG = x, y, y_pred
 
         fixed_step = epoch_fixed_step or self._lr_averaging_queue._pos_cyclic == False
-        if arctan_coeff is not None: self._arctan_coeff = arctan_coeff
         res = self._batch_step(images, labels, logitsG, eta_target = eta_target, fixed_step = fixed_step)
 
         do_lookahead = False

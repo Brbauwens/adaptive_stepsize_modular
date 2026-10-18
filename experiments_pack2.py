@@ -107,6 +107,7 @@ if 'run_test' in locals() and run_test == 100:
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
+linearity_coeff_110 = 0.1
 if 'run_test' in locals() and run_test == 110:
 
     job_nr_str = get_job_nr(sys.argv)
@@ -122,7 +123,7 @@ if 'run_test' in locals() and run_test == 110:
 
     #Netline
     nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_110)
     nl_opt.lr_averaging_queue_size = 50
     nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
@@ -132,7 +133,7 @@ if 'run_test' in locals() and run_test == 110:
     model_dz = clone_resnet18v2(model, meta)
 
     dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_110)
     dz_opt.lr_averaging_queue_size = 50
     dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)

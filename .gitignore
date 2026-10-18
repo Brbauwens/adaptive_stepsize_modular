@@ -2,3 +2,5 @@
 /.data_experiments
 __pycache__
 /logs
+/exp100.ipynb
+/exp110.ipynb
