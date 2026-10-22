@@ -15,9 +15,16 @@ ParamsT: TypeAlias = (
 )
 
 class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
-    def __init__(self, params: ParamsT, defaults: dict[str, Any], lookahead_steps: int, lookahead_alpha: float) -> None:
+    def __init__(self, params: ParamsT, defaults: dict[str, Any], lookahead_steps: int,
+                 lookahead_alpha: float, probe_batch_size: int | None = None) -> None:
+        if probe_batch_size is not None and (
+            not isinstance(probe_batch_size, int) or isinstance(probe_batch_size, bool)
+            or probe_batch_size <= 0
+        ):
+            raise ValueError("probe_batch_size must be a positive integer or None")
         super().__init__(params, defaults)
 
+        self.probe_batch_size = probe_batch_size
         self.la_alpha = lookahead_alpha
         self._total_la_steps = lookahead_steps
         self.la_states = defaultdict(list) #: defaultdict[int, List[Tensor]] = []
@@ -54,6 +61,12 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
 
     def _init_eta_averaging(self):
         self._lr_averaging_queue = AverageCyclicQueue(queue_size = self.lr_averaging_queue_size, fill_value = 0.02, device = self.meta.device)
+
+    def _valid_eta_estimate(self, eta):
+        """Keep the last valid estimate if no usable probe direction remains."""
+        queue = self._lr_averaging_queue
+        previous_eta = queue._queue[(queue._pos - 1) % queue.queue_size]
+        return torch.where(torch.isfinite(eta) & (eta > 0), eta, previous_eta)
 
     def _calc_eta_averaging(self, eta):
         self._lr_averaging_queue.put_value(eta)
@@ -175,6 +188,44 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
             for num, param in enumerate(group['params']):
                 param.data.copy_(la_backup[num])
         self.la_backups.clear()
+
+    @torch.no_grad()
+    def _probe_step(self, images, labels, logitsG):
+        """Measure the small full-gradient step on at most probe_batch_size images.
+
+        The trainer has already computed gradients on the entire minibatch.
+        Keep those gradients for both parameter displacements; only the logit
+        measurements and labels used to estimate the learning rate are sampled.
+        """
+        if self.probe_batch_size is None:
+            grads_final = self._step1()
+            return grads_final, labels, logitsG, self.model(images)
+
+        use_subset = images.size(0) > self.probe_batch_size
+        if use_subset:
+            indices = torch.randperm(images.size(0), device=images.device)[:self.probe_batch_size]
+            images, labels = images[indices], labels[indices]
+
+        # Training BatchNorm depends on the batch composition. Measure both
+        # endpoints on the SAME subset rather than slicing full-batch logitsG.
+        # These diagnostic forwards must not update running statistics again.
+        batchnorms = [
+            module for module in self.model.modules()
+            if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d,
+                                   torch.nn.BatchNorm3d, torch.nn.SyncBatchNorm))
+            and module.training and module.track_running_stats
+        ]
+        for module in batchnorms:
+            module.track_running_stats = False
+        try:
+            logits0 = self.model(images) if use_subset else logitsG
+            grads_final = self._step1()
+            logits1 = self.model(images)
+        finally:
+            for module in batchnorms:
+                module.track_running_stats = True
+
+        return grads_final, labels, logits0, logits1
 
     def _step1(self):
         grads_final = defaultdict(dict)

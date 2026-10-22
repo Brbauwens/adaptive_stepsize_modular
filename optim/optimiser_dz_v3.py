@@ -23,7 +23,8 @@ class NetDz(NetOptimizer):
         maximize: bool = False,
         foreach=True,
         lookahead_steps=5,
-        lookahead_alpha=1.0
+        lookahead_alpha=1.0,
+        probe_batch_size: int | None = None
     ) -> None:
         if lr1 < 0.0:
             raise ValueError(f"Invalid learning rate: {lr1}")
@@ -56,7 +57,8 @@ class NetDz(NetOptimizer):
             "foreach": foreach,
             "linearity_coeff": linearity_coeff
         }
-        super().__init__(model.parameters(), defaults, lookahead_steps, lookahead_alpha)
+        super().__init__(model.parameters(), defaults, lookahead_steps, lookahead_alpha,
+                         probe_batch_size=probe_batch_size)
         #if len(self.param_groups) != 1:
         #    raise ValueError("Model must have a single param_group")
 
@@ -67,15 +69,13 @@ class NetDz(NetOptimizer):
         """Perform a single optimization step.
         """
 
-        logits0 = logitsG
-        #Small step
-        grads_final = self._step1()
+        # Small step and paired logit measurements on the selected examples.
+        grads_final, labels, logits0, logits1 = self._probe_step(images, labels, logitsG)
 
         #Large step eta calculation
         eta1 = self.param_groups[0]["lr1"]
         pp = F.one_hot(labels, self.meta.output_dim)
         qq0 = F.softmax(logits0, dim=1)
-        logits1 = self.model.forward(images)
         qq1 = F.softmax(logits1, dim=1)
         delta_pq, delta_q1q = pp-qq0, qq1-qq0
 
@@ -83,13 +83,13 @@ class NetDz(NetOptimizer):
         pt_pq_norm = torch.sum(delta_pq*delta_pq, dim=1) ** .5
         pt_q1q_norm = torch.sum(delta_q1q*delta_q1q, dim=1) ** .5
         pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm)
-        pt_mask = torch.where(pt_cos > 0.25, 1.0, 0.0)
+        pt_mask = torch.isfinite(pt_cos) & (pt_cos >= 0.25)
 
         dz = (logits1-logits0)/eta1
         qqq = pt_mask[:,None,None]*qq0[:,:,None]*(self._eye[None,:,:]-qq0[:,None,:])
         eta2_raw_y = torch.squeeze(torch.sum(pt_mask[:,None]*delta_pq*dz)/torch.sum(dz[:,:,None]*qqq*dz[:,None,:]))
 
-        eta2_orig_pre = eta2_raw_y
+        eta2_orig_pre = self._valid_eta_estimate(eta2_raw_y)
         eta2_orig, eta2_orig_avg = self._calc_eta_averaging(eta2_orig_pre)
         self.alpha_nomomentum = eta_target/(eta2_orig_avg*self.alpha_momentum)
         alpha_full = self.alpha_nomomentum*self.alpha_momentum

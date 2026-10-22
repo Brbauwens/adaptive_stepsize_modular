@@ -18,7 +18,6 @@ class Score:
         self.mistakes, self.loss, self.count = 0, 0, 0
 
     def update(self, y_pred, y_true):
-        y_pred = y_pred.squeeze()
         loss = self.loss_fn(y_pred, y_true)
         with torch.no_grad():
             self.loss += loss.item()*len(y_true)  # Loss is normalized later. 
@@ -68,7 +67,7 @@ class Trainer:
             self.scheduler.zero_grad()
         if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
             self.scheduler.batch_prestep()
-        y_pred = self.model(x).squeeze()
+        y_pred = self.model(x)
         loss = score.update(y_pred, y)
         loss.backward()
         return loss, y_pred
@@ -77,7 +76,7 @@ class Trainer:
         self.optimizer.zero_grad()
         if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
             self.scheduler.batch_prestep()
-        y_pred = self.model(x).squeeze()
+        y_pred = self.model(x)
         loss = F.cross_entropy(y_pred, y)
         loss.backward()
         return loss, y_pred
