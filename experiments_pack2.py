@@ -65,6 +65,7 @@ if 'run_test' in locals() and run_test == 100:
                     format="%(levelname)s: %(asctime)s %(message)s")
 
     meta = MetaData(output_dim=10, device=device)
+
     EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
 
     train_dl, test_dl = load_data('CIFAR10')
@@ -304,4 +305,121 @@ if 'run_test' in locals() and run_test == 140:
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
     rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
+
+
+
+if 'run_test' in locals() and run_test == 20:
+    import pickle
+    WARMUP_EPOCHS = 5
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp100_{job_nr_str}.log",
+                    level=logging.INFO,
+                    format="%(levelname)s: %(asctime)s %(message)s")
+
+    meta = MetaData(output_dim=10, device=device)
+
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR10')
+    model = _make_resnet18v2(meta.output_dim).to(device)
+
+
+    #Sgd
+    experiments = []
+    for lr_max in [0.01, 0.02, 0.05]:
+        for wd in [5e-4, 1e-3, 5e-3]:
+            model_sgd = clone_resnet18v2(model, meta)
+            opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=wd)
+            schd_sgd = optim.lr_scheduler.SequentialLR(opt_sgd,
+                schedulers=[
+                    # Phase 1: linear warmup from 0.01 * lr_max to lr_max
+                    optim.lr_scheduler.LinearLR(
+                        opt_sgd,
+                        start_factor=0.01,
+                        end_factor=1.0,
+                        total_iters=WARMUP_EPOCHS,
+                    ),
+                    # Phase 2: cosine decay from lr_max toward zero
+                    optim.lr_scheduler.CosineAnnealingLR(
+                        opt_sgd,
+                        T_max=EPOCHS_PER_EXPERIMENT - WARMUP_EPOCHS,
+                        eta_min=0.0,
+                    ),
+                ],
+                milestones=[WARMUP_EPOCHS],
+            )
+
+            exp = ExperimentWithScheduler(f"sgdcos_lr{lr_max:.4f}_wd{wd:.4f}", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
+            experiments.append(exp)
+
+    print(f"Experiment RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+
+    import pickle
+    filename = f"logs/tune_sgd_{run_test:03d}.pkl"
+    with open(filename, "wb") as f:
+        pickle.dump(rec, f)
+
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
+
+
+if 'run_test' in locals() and run_test == 20:
+    import pickle
+    WARMUP_EPOCHS = 5
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp100_{job_nr_str}.log",
+                    level=logging.INFO,
+                    format="%(levelname)s: %(asctime)s %(message)s")
+
+    meta = MetaData(output_dim=10, device=device)
+
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR10')
+    model = _make_resnet18v2(meta.output_dim).to(device)
+
+
+    #Sgd
+    experiments = []
+    for lr_max in [0.01, 0.02, 0.05]:
+        for wd in [5e-4, 1e-3, 2e-3, 5e-3, 0.01]:
+            model_sgd = clone_resnet18v2(model, meta)
+            opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=wd)
+            schd_sgd = optim.lr_scheduler.SequentialLR(opt_sgd,
+                schedulers=[
+                    # Phase 1: linear warmup from 0.01 * lr_max to lr_max
+                    optim.lr_scheduler.LinearLR(
+                        opt_sgd,
+                        start_factor=0.01,
+                        end_factor=1.0,
+                        total_iters=WARMUP_EPOCHS,
+                    ),
+                    # Phase 2: cosine decay from lr_max toward zero
+                    optim.lr_scheduler.CosineAnnealingLR(
+                        opt_sgd,
+                        T_max=EPOCHS_PER_EXPERIMENT - WARMUP_EPOCHS,
+                        eta_min=0.0,
+                    ),
+                ],
+                milestones=[WARMUP_EPOCHS],
+            )
+
+            exp = ExperimentWithScheduler(f"sgdcos_lr{lr_max:.4f}_wd{wd:.4f}", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
+            experiments.append(exp)
+
+    print(f"Experiment RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
+    rec, trainers = run_experiments(train_dl, test_dl, experiments, num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+
+    import pickle
+    filename = f"logs/tune_sgd_{run_test:03d}.pkl"
+    with open(filename, "wb") as f:
+        pickle.dump(rec, f)
+
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
