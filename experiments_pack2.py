@@ -108,7 +108,6 @@ if 'run_test' in locals() and run_test == 100:
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-linearity_coeff_110 = 0.1
 if 'run_test' in locals() and run_test == 110:
 
     job_nr_str = get_job_nr(sys.argv)
@@ -124,7 +123,7 @@ if 'run_test' in locals() and run_test == 110:
 
     #Netline
     nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_110)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
     nl_opt.lr_averaging_queue_size = 50
     nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
@@ -134,7 +133,60 @@ if 'run_test' in locals() and run_test == 110:
     model_dz = clone_resnet18v2(model, meta)
 
     dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_110)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
+    dz_opt.lr_averaging_queue_size = 50
+    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
+    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
+
+    #Lookahead
+    model_lookahead = clone_resnet18v2(model, meta)
+    opt_sgd_lookahead = optim.SGD(model_lookahead.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
+    opt_lookahead = Lookahead(opt_sgd_lookahead)
+    schd_lookahead = optim.lr_scheduler.CosineAnnealingLR(opt_lookahead, T_max=EPOCHS_PER_EXPERIMENT)
+    exp_lookahead = ExperimentWithScheduler("lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
+
+    #Sgd
+    model_sgd = clone_resnet18v2(model, meta)
+    opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
+    schd_sgd = optim.lr_scheduler.CosineAnnealingLR(opt_sgd, T_max=EPOCHS_PER_EXPERIMENT)
+    exp_sgd = ExperimentWithScheduler("sgd-cosine", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
+
+    print(f"Experiment RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
+    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
+                                     num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
+if 'run_test' in locals() and run_test == 111:
+    la_alpha = 1.0
+    linearity_coeff_111 = 0.2
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp111_{job_nr_str}.log",
+                    level=logging.INFO,
+                    format="%(levelname)s: %(asctime)s %(message)s")
+    print(f"linearity_coeff={linearity_coeff_111}")
+
+    meta = MetaData(output_dim=100, device=device)
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR100')
+    model = _make_resnet18v2(meta.output_dim).to(device)
+
+    #Netline
+    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_111)
+    nl_opt.lr_averaging_queue_size = 50
+    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
+    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
+
+    #Dz
+    model_dz = clone_resnet18v2(model, meta)
+
+    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_111)
     dz_opt.lr_averaging_queue_size = 50
     dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
@@ -258,12 +310,67 @@ if 'run_test' in locals() and run_test == 130:
                                      num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
+if 'run_test' in locals() and run_test == 131:
+    la_alpha = 1.0
+    linearity_coeff_131 = 0.2
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp131_{job_nr_str}.log",
+                    level=logging.INFO,
+                    format="%(levelname)s: %(asctime)s %(message)s")
+    print(f"linearity_coeff={linearity_coeff_131}")
+
+    meta = MetaData(output_dim=100, device=device)
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR100')
+    model = _make_resnet34v2(meta.output_dim).to(device)
+
+    #Netline
+    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_131)
+    nl_opt.lr_averaging_queue_size = 50
+    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
+    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
+
+    #Dz
+    model_dz = clone_resnet34v2(model, meta)
+    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_131)
+    dz_opt.lr_averaging_queue_size = 50
+    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
+                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
+    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
+
+    #Lookahead
+    model_lookahead = clone_resnet34v2(model, meta)
+    opt_sgd_lookahead = optim.SGD(model_lookahead.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
+    opt_lookahead = Lookahead(opt_sgd_lookahead)
+    schd_lookahead = optim.lr_scheduler.CosineAnnealingLR(opt_lookahead, T_max=EPOCHS_PER_EXPERIMENT)
+    exp_lookahead = ExperimentWithScheduler("lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
+
+    #Sgd
+    model_sgd = clone_resnet34v2(model, meta)
+    opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
+    schd_sgd = optim.lr_scheduler.CosineAnnealingLR(opt_sgd, T_max=EPOCHS_PER_EXPERIMENT)
+    exp_sgd = ExperimentWithScheduler("sgd-cosine", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
+
+    print(f"Experiment RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
+    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
+                                     num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
 if 'run_test' in locals() and run_test == 140:
+    la_alpha = 1.0
+    linearity_coeff_140 = 0.2
 
     job_nr_str = get_job_nr(sys.argv)
     logging.basicConfig(filename=f"logs/exp140_{job_nr_str}.log",
                     level=logging.INFO,
                     format="%(levelname)s: %(asctime)s %(message)s")
+    print(f"linearity_coeff={linearity_coeff_140}")
 
     meta = MetaData(output_dim=10, device=device)
     EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
@@ -273,7 +380,7 @@ if 'run_test' in locals() and run_test == 140:
 
     #Netline
     nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_140)
     nl_opt.lr_averaging_queue_size = 50
     nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
@@ -282,7 +389,7 @@ if 'run_test' in locals() and run_test == 140:
     #Dz
     model_dz = clone_resnet18v2(model, meta)
     dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
+                   lookahead_steps=la_steps, lookahead_alpha=la_alpha, linearity_coeff = linearity_coeff_140)
     dz_opt.lr_averaging_queue_size = 50
     dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
                                     epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
