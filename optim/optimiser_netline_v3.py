@@ -39,7 +39,7 @@ class NetLine(NetOptimizer):
         if linearity_coeff <= 0.0:
             raise ValueError(f"Invalid linearity_coeff value: {linearity_coeff}")
 
-        self.model = model
+        #self.model = model
         self.meta = meta
         self.beta_min = torch.tensor(1e-20).to(meta.device)
 
@@ -58,7 +58,7 @@ class NetLine(NetOptimizer):
             "foreach": foreach,
             "linearity_coeff": linearity_coeff
         }
-        super().__init__(model.parameters(), defaults, lookahead_steps, lookahead_alpha)
+        super().__init__(model, defaults, lookahead_steps, lookahead_alpha)
         #if len(self.param_groups) != 1:
         #    raise ValueError("Model must have a single param_group")
 
