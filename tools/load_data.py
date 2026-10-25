@@ -4,8 +4,8 @@ from torchvision import datasets
 from torchvision import transforms
 from torchvision.transforms import ToTensor
 from pathlib import Path
-
-
+from datasets import load_from_disk
+from tools.load_imagenet100 import load_ImageNet100
 
 debug = 0
 paths = ["/opt/software/datasets/cifar/", "../data"]
@@ -19,7 +19,8 @@ def load_data(dataset, train_transform=None, test_transform=None):
             "CIFAR10"       : load_CIFAR10, 
             "CIFAR100"      : load_CIFAR100, 
             "PointsDataset" : load_pointsDataset,
-            "SVHN"          : load_SVHN
+            "SVHN"          : load_SVHN,
+            "ImageNet100"   : load_ImageNet100
             }
     if dataset in data2func:
         return data2func[dataset]()
@@ -128,7 +129,7 @@ train_transform_svhn = transforms.Compose([
 test_transform_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize(*stats_svhn)])
 
 def load_SVHN():
-    DATASET_PATH = "../data/SVHN/"
+    DATASET_PATH = "/opt/software/datasets/svhn/"
     BATCH_SIZE = 128
     train_dataset = datasets.SVHN(root=DATASET_PATH, split='train', download=True, transform=train_transform_svhn)
     test_dataset = datasets.SVHN(root=DATASET_PATH, split='test', download=True, transform=test_transform_svhn)
