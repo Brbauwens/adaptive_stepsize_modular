@@ -5,7 +5,7 @@ from torchvision import transforms
 from torchvision.transforms import ToTensor
 from pathlib import Path
 from datasets import load_from_disk
-from tools.load_imagenet100 import load_ImageNet100
+from tools.load_imagenet_parquet import load_ImageNet100
 
 debug = 0
 paths = ["/opt/software/datasets/cifar/", "../data"]
