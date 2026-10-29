@@ -1,20 +1,14 @@
-from torch import optim
-
 import os
 import logging
 from datetime import datetime
 
 from tools.load_data import get_device, load_data
-from experiment import ExperimentScheduler as ExperimentWithScheduler, run_experiments
-from optim.optimiser_netline_v3 import NetLine
-from optim.optimiser_dz_v3 import NetDz
-from optim.scheduler_netline import CosineAnnealingNetLine
+from experiment import run_experiments
 from optim.utils import MetaData
 from nets.cnn import _make_resnet18v2, _make_resnet34v2
-from optim.optimizer_pack1 import Lookahead
 from tools.load_imagenet_parquet import load_ImageNet100, load_ImageNetTiny
-from tools.experiments_util import initialise_netline, initialise_dz, initialise_lookahead, initialise_sgd,\
-    initialise_netline_experiment, initialise_dz_experiment, initialise_lookahead_experiment, initialise_sgd_experiment
+from tools.experiments_util import initialise_netline_experiment, initialise_dz_experiment, initialise_lookahead_experiment,\
+    initialise_sgd_experiment, initialise_leap_experiment
 
 device = get_device()
 
@@ -56,6 +50,7 @@ lr_max = 0.02
 val_linearity_coeff = 0.05
 val_momentum = 0.9
 val_weight_decay = 5e-3
+val_sigma_coeff = 0.01
 la_steps=5
 la_alpha=0.8
 
@@ -79,95 +74,36 @@ if 'run_test' in locals() and run_test == 100:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
 
     print(f"Experiment_100 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
+#Exp101 RESNET18/CIFAR10 with lookahead off
 if 'run_test' in locals() and run_test == 101:
-    la_alpha, linearity_coeff_101 = 1.0, 0.1
+    la_alpha, val_linearity_coeff = 1.0, 0.1
 
     job_nr_str = get_job_nr(sys.argv)
-    logging.basicConfig(filename=f"logs/exp101_{job_nr_str}.log", level=logging.INFO,\
-                        format="%(levelname)s: %(asctime)s %(message)s")
+    logging.basicConfig(filename=f"logs/exp101_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
+
     meta = MetaData(output_dim=10, device=device)
     EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
 
     train_dl, test_dl = load_data('CIFAR10')
     model = _make_resnet18v2(meta.output_dim).to(device)
 
-    #Netline
-    nl_opt, nl_sch = initialise_netline(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                        linearity_coeff=linearity_coeff_101, la_alpha=la_alpha)
-    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
-    #Dz
-    model_dz = clone_resnet18v2(model, meta)
-    dz_opt, dz_sch = initialise_dz(model_dz, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
-                                   linearity_coeff=linearity_coeff_101, la_alpha=la_alpha)
-    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
-    #Lookahead
-    model_la = clone_resnet18v2(model, meta)
-    la_opt, la_sch = initialise_lookahead(model_la, EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_lookahead = ExperimentWithScheduler("lookahead", model_la, la_opt, la_sch, do_optimiser_step=True)
-    #Sgd
-    model_sgd = clone_resnet18v2(model, meta)
-    sgd_opt, sgd_sch = initialise_sgd(model_sgd, EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_sgd = ExperimentWithScheduler("sgd-cosine", model_sgd, sgd_opt, sgd_sch, do_optimiser_step=True)
+    exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
+                                        linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+                                   linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
 
     print(f"Experiment_101 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead], num_epochs=EPOCHS_PER_EXPERIMENT)
-    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-
-#Exp110 RESNET18/CIFAR100 with lookahead on
-if 'run_test' in locals() and run_test == 110:
-
-    job_nr_str = get_job_nr(sys.argv)
-    logging.basicConfig(filename=f"logs/exp110_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
-
-    meta = MetaData(output_dim=100, device=device)
-    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
-
-    train_dl, test_dl = load_data('CIFAR100')
-    model = _make_resnet18v2(meta.output_dim).to(device)
-
-    #Netline
-    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
-    nl_opt.lr_averaging_queue_size = 50
-    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
-                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
-    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
-
-    #Dz
-    model_dz = clone_resnet18v2(model, meta)
-
-    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
-    dz_opt.lr_averaging_queue_size = 50
-    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
-                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
-    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
-
-    #Lookahead
-    model_lookahead = clone_resnet18v2(model, meta)
-    opt_sgd_lookahead = optim.SGD(model_lookahead.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    opt_lookahead = Lookahead(opt_sgd_lookahead)
-    schd_lookahead = optim.lr_scheduler.CosineAnnealingLR(opt_lookahead, T_max=EPOCHS_PER_EXPERIMENT)
-    exp_lookahead = ExperimentWithScheduler("lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
-
-    #Sgd
-    model_sgd = clone_resnet18v2(model, meta)
-    opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    schd_sgd = optim.lr_scheduler.CosineAnnealingLR(opt_sgd, T_max=EPOCHS_PER_EXPERIMENT)
-    exp_sgd = ExperimentWithScheduler("sgd-cosine", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
-
-    print(f"Experiment_110 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
-          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
-    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
-                                     num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp111 RESNET18/CIFAR100 with lookahead off
@@ -188,11 +124,11 @@ if 'run_test' in locals() and run_test == 111:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=linearity_coeff_111, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
 
     print(f"Experiment_111 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp120 RESNET34/CIFAR10 with lookahead on
@@ -212,58 +148,36 @@ if 'run_test' in locals() and run_test == 120:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
 
     print(f"Experiment_120 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-if 'run_test' in locals() and run_test == 130:
+#Exp121 RESNET34/CIFAR10 with lookahead off
+if 'run_test' in locals() and run_test == 121:
+    la_alpha, val_linearity_coeff = 1.0, 0.1
 
     job_nr_str = get_job_nr(sys.argv)
-    logging.basicConfig(filename=f"logs/exp130_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
+    logging.basicConfig(filename=f"logs/exp121_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
 
-    meta = MetaData(output_dim=100, device=device)
+    meta = MetaData(output_dim=10, device=device)
     EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
 
-    train_dl, test_dl = load_data('CIFAR100')
+    train_dl, test_dl = load_data('CIFAR10')
     model = _make_resnet34v2(meta.output_dim).to(device)
 
-    #Netline
-    nl_opt = NetLine(model=model, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
-    nl_opt.lr_averaging_queue_size = 50
-    nl_sch = CosineAnnealingNetLine(optimizer = nl_opt, lr_max=lr_max,\
-                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
-    exp_netline = ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
+    exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
+                                        linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+                                   linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
 
-    #Dz
-    model_dz = clone_resnet34v2(model, meta)
-    dz_opt = NetDz(model=model_dz, meta=meta, lr1=lr1, momentum=val_momentum, weight_decay=5e-3, foreach=True,\
-                   lookahead_steps=la_steps, lookahead_alpha=la_alpha)
-    dz_opt.lr_averaging_queue_size = 50
-    dz_sch = CosineAnnealingNetLine(optimizer = dz_opt, lr_max=lr_max,\
-                                    epochs_per_experiment = EPOCHS_PER_EXPERIMENT, epochs_warmup = 0, epochs_shutdown = 0)
-    exp_dz = ExperimentWithScheduler("dz", model_dz, dz_opt, dz_sch, do_optimiser_step=False)
-
-    #Lookahead
-    model_lookahead = clone_resnet34v2(model, meta)
-    opt_sgd_lookahead = optim.SGD(model_lookahead.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    opt_lookahead = Lookahead(opt_sgd_lookahead)
-    schd_lookahead = optim.lr_scheduler.CosineAnnealingLR(opt_lookahead, T_max=EPOCHS_PER_EXPERIMENT)
-    exp_lookahead = ExperimentWithScheduler("lookahead", model_lookahead, opt_lookahead, schd_lookahead, do_optimiser_step=True)
-
-    #Sgd
-    model_sgd = clone_resnet34v2(model, meta)
-    opt_sgd = optim.SGD(model_sgd.parameters(), lr=lr_max, momentum=val_momentum, weight_decay=5e-3)
-    schd_sgd = optim.lr_scheduler.CosineAnnealingLR(opt_sgd, T_max=EPOCHS_PER_EXPERIMENT)
-    exp_sgd = ExperimentWithScheduler("sgd-cosine", model_sgd, opt_sgd, schd_sgd, do_optimiser_step=True)
-
-    print(f"Experiment RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
-          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} with params:\r\n" + format_params())
-    rec, trainers = run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead],\
-                                     num_epochs=EPOCHS_PER_EXPERIMENT, verbose=True)
+    print(f"Experiment_121 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp131 RESNET34/CIFAR100 with lookahead off
@@ -285,11 +199,11 @@ if 'run_test' in locals() and run_test == 131:
     exp_dz = initialise_dz_experiment(clone_resnet34v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=linearity_coeff_131, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_sgd = initialise_sgd_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_131 RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp140 RESNET18/SVHN
@@ -364,5 +278,5 @@ if 'run_test' in locals() and run_test == 151:
 
     print(f"Experiment_151 RESNET18/TinyImageNet/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_lookahead], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
