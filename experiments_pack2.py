@@ -210,7 +210,7 @@ if 'run_test' in locals() and run_test == 121:
     run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-#Exp130 RESNET34/CIFAR100 with lookahead off
+#Exp130 RESNET34/CIFAR100 with lookahead on
 if 'run_test' in locals() and run_test == 130:
 
     job_nr_str = get_job_nr(sys.argv)
