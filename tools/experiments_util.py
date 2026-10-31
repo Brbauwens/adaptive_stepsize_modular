@@ -3,7 +3,8 @@ from torch import optim
 from optim.optimiser_netline_v3 import NetLine
 from optim.optimiser_dz_v3 import NetDz
 from optim.scheduler_netline import CosineAnnealingNetLine
-from optim.optimizer_pack1 import Lookahead, LEAP
+from optim.optimizer_pack1 import Lookahead
+from optim.sgd_leak import SGD_LEAK
 from experiment import ExperimentScheduler as ExperimentWithScheduler
 
 def initialise_netline(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
@@ -42,8 +43,8 @@ def initialise_lookahead(model, epochs_per_experiment, lr_max, momentum, weight_
 def initialise_leap(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff):
     print(f"Leap is initialising with params: lr_max={lr_max}, momentum={momentum}, weight_decay={weight_decay}, "+\
           f"sigma_coeff={sigma_coeff}")
-    sgd_opt = optim.SGD(model.parameters(), lr=lr_max, momentum=momentum, weight_decay=weight_decay)
-    leap_opt = LEAP(sgd_opt, sigma=sigma_coeff)
+    leap_opt = SGD_LEAK(model.parameters(), lr=lr_max, momentum=momentum, weight_decay=weight_decay, sigma=sigma_coeff)
+    #leap_opt = LEAP(sgd_opt, sigma=sigma_coeff)
     sgd_sch = optim.lr_scheduler.CosineAnnealingLR(leap_opt, T_max=epochs_per_experiment)
     return leap_opt, sgd_sch
 
