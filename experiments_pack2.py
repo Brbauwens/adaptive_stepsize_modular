@@ -75,10 +75,11 @@ if 'run_test' in locals() and run_test == 100:
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
     exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_100 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp101 RESNET18/CIFAR10 with lookahead off
@@ -100,10 +101,36 @@ if 'run_test' in locals() and run_test == 101:
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
     exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_101 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
+#Exp110 RESNET18/CIFAR100 with lookahead on
+if 'run_test' in locals() and run_test == 110:
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp111_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
+
+    meta = MetaData(output_dim=100, device=device)
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR100')
+    model = _make_resnet18v2(meta.output_dim).to(device)
+
+    exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
+                                        linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+                                   linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+
+    print(f"Experiment_110 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp111 RESNET18/CIFAR100 with lookahead off
@@ -125,6 +152,7 @@ if 'run_test' in locals() and run_test == 111:
                                    linearity_coeff=linearity_coeff_111, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
     exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_111 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -145,14 +173,15 @@ if 'run_test' in locals() and run_test == 120:
 
     exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
                                         linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
-    exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+    exp_dz = initialise_dz_experiment(clone_resnet34v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
-    exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_la = initialise_lookahead_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_120 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp121 RESNET34/CIFAR10 with lookahead off
@@ -170,14 +199,40 @@ if 'run_test' in locals() and run_test == 121:
 
     exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
                                         linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
-    exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+    exp_dz = initialise_dz_experiment(clone_resnet34v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
-    exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_la = initialise_lookahead_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_121 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
+    print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+
+#Exp130 RESNET34/CIFAR100 with lookahead off
+if 'run_test' in locals() and run_test == 130:
+
+    job_nr_str = get_job_nr(sys.argv)
+    logging.basicConfig(filename=f"logs/exp130_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
+
+    meta = MetaData(output_dim=100, device=device)
+    EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
+
+    train_dl, test_dl = load_data('CIFAR100')
+    model = _make_resnet34v2(meta.output_dim).to(device)
+
+    exp_netline = initialise_netline_experiment(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
+                                        linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_dz = initialise_dz_experiment(clone_resnet34v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
+                                   linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
+    exp_la = initialise_lookahead_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+
+    print(f"Experiment_130 RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
+          f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
 #Exp131 RESNET34/CIFAR100 with lookahead off
@@ -186,7 +241,6 @@ if 'run_test' in locals() and run_test == 131:
 
     job_nr_str = get_job_nr(sys.argv)
     logging.basicConfig(filename=f"logs/exp131_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")
-    print(f"linearity_coeff={linearity_coeff_131}")
 
     meta = MetaData(output_dim=100, device=device)
     EPOCHS_PER_EXPERIMENT = get_epochs_per_exp(sys.argv)
@@ -199,14 +253,15 @@ if 'run_test' in locals() and run_test == 131:
     exp_dz = initialise_dz_experiment(clone_resnet34v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=linearity_coeff_131, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
-    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
+    exp_sgd = initialise_sgd_experiment(clone_resnet34v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_131 RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-#Exp140 RESNET18/SVHN
+#Exp140 RESNET18/SVHN with lookahead on
 if 'run_test' in locals() and run_test == 140:
     #la_alpha, linearity_coeff_140 = 1.0, 0.1
 
@@ -224,14 +279,15 @@ if 'run_test' in locals() and run_test == 140:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, \
                                       val_weight_decay, linearity_coeff=val_linearity_coeff, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
     exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_140 RESNET18/SVHN/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-#Exp150 RESNET18/ImageNet100
+#Exp150 RESNET18/ImageNet100 with lookahead off
 if 'run_test' in locals() and run_test == 150:
     la_alpha, linearity_coeff_150 = 1.0, 0.1
 
@@ -249,14 +305,15 @@ if 'run_test' in locals() and run_test == 150:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=linearity_coeff_150, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
     exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_150 RESNET18/ImageNet100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
 
-#Exp151 RESNET18/TinyImageNet
+#Exp151 RESNET18/TinyImageNet with lookahead off
 if 'run_test' in locals() and run_test == 151:
     la_alpha, linearity_coeff_151 = 1.0, 0.1
 
@@ -274,9 +331,10 @@ if 'run_test' in locals() and run_test == 151:
     exp_dz = initialise_dz_experiment(clone_resnet18v2(model, meta), meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay, \
                                    linearity_coeff=linearity_coeff_151, la_alpha=la_alpha)
     exp_la = initialise_lookahead_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
+    exp_leap = initialise_leap_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay, val_sigma_coeff)
     exp_sgd = initialise_sgd_experiment(clone_resnet18v2(model, meta), EPOCHS_PER_EXPERIMENT, lr_max, val_momentum, val_weight_decay)
 
     print(f"Experiment_151 RESNET18/TinyImageNet/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_sgd, exp_la], num_epochs=EPOCHS_PER_EXPERIMENT)
+    run_experiments(train_dl, test_dl, [exp_netline, exp_dz, exp_leap, exp_la, exp_sgd], num_epochs=EPOCHS_PER_EXPERIMENT)
     print(f"Experiment {job_nr_str} finished at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
