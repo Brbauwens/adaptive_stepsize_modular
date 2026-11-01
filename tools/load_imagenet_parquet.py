@@ -1,8 +1,11 @@
-import os
-from datasets import load_dataset, Image
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
+
+import os
+from datasets import load_dataset, Image
+import random
+import numpy as np
 
 # Transforms (Data Augmentation for Train, Clean Resize for Val)
 imNet_train_transform = transforms.Compose([
@@ -19,6 +22,11 @@ imNet_val_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 # Preprocess functions for the transforms
 def imNet_preprocess_train(examples):
     examples["pixel_values"] = [imNet_train_transform(img.convert("RGB")) for img in examples["image"]]
@@ -34,7 +42,7 @@ def im100_collate_fn(batch):
     labels = torch.tensor([x["label"] for x in batch], dtype=torch.long)
     return images, labels
 
-def _load_ImageNet(data_dir, batch_size, num_workers, image_convert = False):
+def _load_ImageNet(data_dir, batch_size, num_workers, image_convert = False, manual_seed = -1):
     # 1. Point to your local data folder
     # Automatically group parquet files into train and validation splits based on filenames
     all_files = os.listdir(data_dir)
@@ -51,15 +59,31 @@ def _load_ImageNet(data_dir, batch_size, num_workers, image_convert = False):
     dataset["train"].set_transform(imNet_preprocess_train)
     dataset["validation"].set_transform(imNet_preprocess_val)
 
+    train_loader = None
     # 4. Create DataLoaders
-    train_loader = DataLoader(
-        dataset["train"], 
-        batch_size=batch_size, 
-        shuffle=True, 
-        collate_fn=im100_collate_fn,
-        num_workers=num_workers,
-        pin_memory=True
-    )
+    if manual_seed < 0:
+        train_loader = DataLoader(
+            dataset["train"], 
+            batch_size=batch_size, 
+            shuffle=True, 
+            collate_fn=im100_collate_fn,
+            num_workers=num_workers,
+            pin_memory=True
+        )
+    else:
+        gen = torch.Generator()
+        gen.manual_seed(manual_seed)
+
+        train_loader = DataLoader(
+            dataset["train"], 
+            batch_size=batch_size, 
+            shuffle=True, 
+            collate_fn=im100_collate_fn,
+            num_workers=num_workers,
+            pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=gen
+        )
 
     val_loader = DataLoader(
         dataset["validation"], 
@@ -73,16 +97,16 @@ def _load_ImageNet(data_dir, batch_size, num_workers, image_convert = False):
 
 #Procedure is used to load data in parquet-format, clonned from https://huggingface.co/datasets/clane9/imagenet-100
 #If lib `datasets` is absent locally, install with command: `pip install datasets`
-def load_ImageNet100():
+def load_ImageNet100(manual_seed):
     DATA_DIR = "/opt/software/datasets/imagenet-100/data/"
     BATCH_SIZE = 32
     NUM_WORKERS = 24 #Equal to CPU physical core count
-    return _load_ImageNet(DATA_DIR, BATCH_SIZE, NUM_WORKERS)
+    return _load_ImageNet(DATA_DIR, BATCH_SIZE, NUM_WORKERS, manual_seed=manual_seed)
 
 #Procedure is used to load data in parquet-format, clonned from https://huggingface.co/datasets/zh-plus/tiny-imagenet
 #If lib `datasets` is absent locally, install with command: `pip install datasets`
-def load_ImageNetTiny():
+def load_ImageNetTiny(manual_seed):
     DATA_DIR = "/opt/software/datasets/tiny-imagenet/data/"
     BATCH_SIZE = 32
     NUM_WORKERS = 24 #Equal to CPU physical core count
-    return _load_ImageNet(DATA_DIR, BATCH_SIZE, NUM_WORKERS, image_convert = True)
+    return _load_ImageNet(DATA_DIR, BATCH_SIZE, NUM_WORKERS, image_convert = True, manual_seed=manual_seed)

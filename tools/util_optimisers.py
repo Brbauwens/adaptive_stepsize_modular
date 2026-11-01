@@ -5,7 +5,7 @@ from optim.optimiser_dz_v3 import NetDz
 from optim.scheduler_netline import CosineAnnealingNetLine
 from optim.optimizer_pack1 import Lookahead
 from optim.sgd_leak import SGD_LEAK
-from experiment import ExperimentScheduler as ExperimentWithScheduler
+from nets.cnn import _make_resnet18v2, _make_resnet34v2
 
 def initialise_netline(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
                        la_steps = 5, la_alpha = 1.0):
@@ -54,26 +54,12 @@ def initialise_sgd(model, epochs_per_experiment, lr_max, momentum, weight_decay)
     sgd_sch = optim.lr_scheduler.CosineAnnealingLR(sgd_opt, T_max=epochs_per_experiment)
     return sgd_opt, sgd_sch
 
-def initialise_netline_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
-                       la_steps = 5, la_alpha = 1.0):
-    nl_opt, nl_sch = initialise_netline(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay,\
-                                        linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps)
-    return ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
+def clone_resnet18v2(model, meta):
+    mdl = _make_resnet18v2(meta.output_dim).to(meta.device)
+    mdl.load_state_dict(model.state_dict())
+    return mdl
 
-def initialise_dz_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
-                  la_steps = 5, la_alpha = 1.0):
-    dz_opt, dz_sch = initialise_dz(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, \
-                                   linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps)
-    return ExperimentWithScheduler("dz", model, dz_opt, dz_sch, do_optimiser_step=False)
-
-def initialise_lookahead_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay, la_steps=5, la_alpha=0.8):
-    la_opt, la_sch = initialise_lookahead(model, epochs_per_experiment, lr_max, momentum, weight_decay, la_alpha=la_alpha, la_steps=la_steps)
-    return ExperimentWithScheduler("lookahead", model, la_opt, la_sch, do_optimiser_step=True)
-
-def initialise_leap_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff):
-    leap_opt, leap_sch = initialise_leap(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff)
-    return ExperimentWithScheduler("leap", model, leap_opt, leap_sch, do_optimiser_step=True)
-
-def initialise_sgd_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay):
-    sgd_opt, sgd_sch = initialise_sgd(model, epochs_per_experiment, lr_max, momentum, weight_decay)
-    return ExperimentWithScheduler("sgd-cosine", model, sgd_opt, sgd_sch, do_optimiser_step=True)
+def clone_resnet34v2(model, meta):
+    mdl = _make_resnet34v2(meta.output_dim).to(meta.device)
+    mdl.load_state_dict(model.state_dict())
+    return mdl
