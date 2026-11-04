@@ -1,8 +1,12 @@
 import torch
+import torch.nn.functional as F
+from time import time
+
 from tools.recorder import Recorder
 from tools.load_data import get_device
 
 device = get_device()
+CALC_TRAIN_LOSS = False
 
 class Score:
     """ Accumulates loss and error over several chunks. 
@@ -16,9 +20,10 @@ class Score:
     def update(self, y_pred, y_true):
         y_pred = y_pred.squeeze()
         loss = self.loss_fn(y_pred, y_true)
-        self.loss += loss.item()*len(y_true)  # Loss is normalized later. 
-        self.mistakes += (y_pred.argmax(dim=1) != y_true).sum().item()
-        self.count += len(y_true)
+        with torch.no_grad():
+            self.loss += loss.item()*len(y_true)  # Loss is normalized later. 
+            self.mistakes += (y_pred.argmax(dim=1) != y_true).sum().item()
+            self.count += len(y_true)
         return loss
 
     def loss_and_error(self):
@@ -42,8 +47,10 @@ class Trainer:
         self.recorder   =  Recorder(self.experiment_name, verbose)
         self.do_optimiser_step = do_optimiser_step
         if scheduler:
-            assert hasattr(scheduler, 'batch_step') or hasattr(scheduler, 'step'), "Scheduler needs a 'step' or 'batch_step' function."
-            assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
+            assert hasattr(scheduler, 'step') or hasattr(scheduler, 'batch_step'), \
+                f"Scheduler of type {scheduler.__class__.__name__} must have method 'step."
+            if optimizer:
+                assert scheduler.optimizer == optimizer, "scheduler must point to the same optimizer as the Trainer"
 
     def test(self, test_dl):
         self.model.eval()
@@ -54,10 +61,24 @@ class Trainer:
                 score.update(y_pred, y.to(device))
         return score.loss_and_error()
 
-    def _compute_grad(self, x, y, score):
-        self.optimizer.zero_grad()
+    def _compute_grad_loss(self, x, y, score):
+        if self.optimizer is not None:
+            self.optimizer.zero_grad()
+        else:
+            self.scheduler.zero_grad()
+        if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
+            self.scheduler.batch_prestep()
         y_pred = self.model(x).squeeze()
         loss = score.update(y_pred, y)
+        loss.backward()
+        return loss, y_pred
+
+    def _compute_grad(self, x, y):
+        self.optimizer.zero_grad()
+        if  self.scheduler is not None and hasattr(self.scheduler, 'batch_prestep'):
+            self.scheduler.batch_prestep()
+        y_pred = self.model(x).squeeze()
+        loss = F.cross_entropy(y_pred, y)
         loss.backward()
         return loss, y_pred
 
@@ -66,27 +87,44 @@ class Trainer:
         self.model.train()
 
     def train_step(self, x, y):
-        loss, y_pred = self._compute_grad(x, y, self.score_train)
+        time_start = time()
+        loss, y_pred = self._compute_grad(x, y) if CALC_TRAIN_LOSS == False\
+            else self._compute_grad_loss(x, y, self.score_train)
         quantity_dict = (sch := self.scheduler) is not None and hasattr(sch, 'batch_step') \
                 and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
         if self.do_optimiser_step:
             self.optimizer.step()
+        torch.cuda.current_stream().synchronize()
+        time_elapsed = time() - time_start
 
         self.recorder.record_batch(quantity_dict)
+        self.recorder.time_add(time_elapsed)
 
     def train_loop_close(self, test_dl):
         if (self.scheduler is not None and hasattr(self.scheduler, 'step')):
             self.scheduler.step()
 
-        self._report(test_dl, self.score_train.loss_and_error())
+        if CALC_TRAIN_LOSS == False:
+            self._report(test_dl, None)
+        else:
+            self._report(test_dl, self.score_train.loss_and_error())
 
     def _report(self, test_dl, train_res):
+        optimiseForLookAhead = hasattr(self.optimizer, 'la_alpha') and self.optimizer.la_alpha < 1.0
+        if optimiseForLookAhead:
+            self.optimizer._backup_and_load_cache()
         test_res = self.test(test_dl)
-        self.recorder.record_epoch({
-               'train_loss' : train_res[0], 'train_error' : train_res[1], 
-                'test_loss' : test_res[0],   'test_error' : test_res[1], 
-            })
-
+        if optimiseForLookAhead:
+            self.optimizer._clear_and_load_backup()
+        if train_res is None:
+            self.recorder.record_epoch({
+                    'test_loss' : test_res[0],   'test_error' : test_res[1], 
+                })
+        else:
+            self.recorder.record_epoch({
+                'train_loss' : train_res[0], 'train_error' : train_res[1], 
+                    'test_loss' : test_res[0],   'test_error' : test_res[1], 
+                })
 
 # Code for testing.
 

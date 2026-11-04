@@ -25,7 +25,7 @@ class ExperimentScheduler:
         self.scheduler         = scheduler
         self.do_optimiser_step = do_optimiser_step
 
-def run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=False):
+def run_experiments(train_dl, test_dl, experiments, num_epochs=2, verbose=True):
     trainers = []
     exp_recorder = ExperimentsRecorder()
     for exp in experiments:

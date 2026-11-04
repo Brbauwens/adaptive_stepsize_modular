@@ -1,19 +1,28 @@
-This code is to inspect various learning rate schedulers that try to adapt learning rates to individual minibatches. 
-A well known theoretical technique is the Polyak Stepsize, for which Polyak proved convergence speeds in his book from 1987 (but the idea was already in his paper from 1969). 
+Experiment pre-sets are placed in experiments_pack2.py. There are the following experiments:
 
-In practice, this stepsize is unstable, and people proposed many fixes in the hope of making it practical. 
-Here is a software-framework to conveniently check some of these approaches. Also, a new optimisation method net-line is included.
+100 RESNET18/CIFAR10 with lookahead on
+101 RESNET18/CIFAR10 with lookahead off
+110 RESNET18/CIFAR100 with lookahead on
+111 RESNET18/CIFAR100 with lookahead off
+120 RESNET34/CIFAR10 with lookahead on
+121 RESNET34/CIFAR10 with lookahead off
+130 RESNET34/CIFAR100 with lookahead on
+131 RESNET34/CIFAR100 with lookahead off
+140 RESNET18/SVHN with lookahead on
+150 RESNET18/ImageNet100 with lookahead off
+151 RESNET18/TinyImageNet with lookahead off
 
-The file 'trainer.py' contains the Trainer class. 
-It runs a standard pytorch training pipeline and allows to add a scheduler. 
-The scheduler is any object that has function 'next', function 'next_batch' or both. 
-The 'next' function is called at the end of each epoch, the next_batch is called right before each gradient step and it updates the learning rate of the optimizer. 
+Every experiment include 5 optimisers to start in parallel: netline, dz, lookahead, leap, sgd. To run an experiment, the following command must be used:
 
-In tools/recorder.py there is a Recorder object that monitors and logs the training process. It has an elaborate 'recplot' function. 
+python experiments_pack2.py <experiment_num> <job_number> <epochs_number> <optimisers_mask> <manual_seed>
+experiment_num: from the list above
+job_number: some unique string id to use in log-file name as a suffix
+epochs_number: number of epochs in the run
+optimisers_mask: bitmask for optimisers. The optimisers have the following ids: netline = 1, dz = 2, lookahead = 4, leap = 8, sgd = 16.
+                 The bitmask by bitwise and with the ids excludes the optimisers. For example, optimisers_mask = 15 will exclude sgd. 
+                 If the bitmask not set, all optimisers are included.
+manual_seed: value from 0 to 15 to use fixed net initialisation and data loader. If not set, seed is not fixed.
 
-In tools/load_data.py there is a bit of messy code to load various datasets. 
-For debugging, there is an artificial fix to make the datasets smaller. 
+Example of command to run experiment 100:
 
-To see a demo of the code, run:
-
-python experiments.py 2
+python experiments_pack2.py 100 146 50 15 0
