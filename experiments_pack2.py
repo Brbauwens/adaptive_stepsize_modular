@@ -55,7 +55,7 @@ lr_max = 0.02
 val_linearity_coeff = 0.05
 val_momentum = 0.9
 val_weight_decay = 5e-3
-val_sigma_coeff = 0.01
+val_sigma_coeff = 0.04
 la_steps=5
 la_alpha=0.8
 
@@ -79,7 +79,7 @@ if 'run_test' in locals() and run_test == 100:
 
 #Exp101 RESNET18/CIFAR10 with lookahead off
 if 'run_test' in locals() and run_test == 101:
-    la_alpha, val_linearity_coeff = 1.0, 0.1
+    la_alpha, val_linearity_coeff, val_sigma_coeff = 1.0, 0.1, 0.08
 
     job_nr_str, EPOCHS_PER_EXPERIMENT, mask_exp, manual_seed = get_extra_params(sys.argv)
     logging.basicConfig(filename=f"logs/exp101_{job_nr_str}.log", level=logging.INFO, format="%(levelname)s: %(asctime)s %(message)s")

@@ -38,13 +38,12 @@ class NetDz(NetOptimizer):
         if linearity_coeff <= 0.0:
             raise ValueError(f"Invalid linearity_coeff value: {linearity_coeff}")
 
-        #self.model = model
         self.meta = meta
+        self.beta_min = torch.tensor(1e-20).to(meta.device)
 
         self.do_shorten_lr_for_momentum = True #If momentum > 0, shorten lr by theoretical ratio |g|/|v|
         self.alpha_momentum = 1.0
 
-        #self._arctan_coeff = 4.0
         self._one = torch.tensor(1.0).to(meta.device)
         self._eye = torch.eye(meta.output_dim, dtype=torch.float).to(meta.device)
 
@@ -82,7 +81,7 @@ class NetDz(NetOptimizer):
         pt_pq_scalar = torch.sum(delta_pq*delta_q1q, dim=1)
         pt_pq_norm = torch.sum(delta_pq*delta_pq, dim=1) ** .5
         pt_q1q_norm = torch.sum(delta_q1q*delta_q1q, dim=1) ** .5
-        pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm)
+        pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm + self.beta_min)
         pt_mask = torch.where(pt_cos > 0.25, 1.0, 0.0)
 
         dz = (logits1-logits0)/eta1
