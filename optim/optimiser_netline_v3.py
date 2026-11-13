@@ -39,7 +39,6 @@ class NetLine(NetOptimizer):
         if linearity_coeff <= 0.0:
             raise ValueError(f"Invalid linearity_coeff value: {linearity_coeff}")
 
-        #self.model = model
         self.meta = meta
         self.beta_min = torch.tensor(1e-20).to(meta.device)
 
@@ -89,9 +88,9 @@ class NetLine(NetOptimizer):
         pt_pq_scalar = torch.sum(delta_pq*delta_q1q, dim=1)
         pt_pq_norm = torch.sum(delta_pq*delta_pq, dim=1) ** .5
         pt_q1q_norm = torch.sum(delta_q1q*delta_q1q, dim=1) ** .5
-        pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm)
+        pt_cos = pt_pq_scalar/(pt_pq_norm*pt_q1q_norm + self.beta_min)
         pt_mask = torch.where(pt_cos > 0.25, 1.0, 0.0)
-        eta2_raw_nl = torch.sum(pt_mask*pt_pq_norm*pt_q1q_norm*pt_cos*eta1/torch.maximum(norm_qq1**2, self.beta_min))
+        eta2_raw_nl = torch.sum(pt_mask*pt_pq_norm*pt_q1q_norm*pt_cos)*eta1/(norm_qq1**2 + self.beta_min)
 
         eta2_orig_pre = eta2_raw_nl
         eta2_orig, eta2_orig_avg = self._calc_eta_averaging(eta2_orig_pre)

@@ -5,7 +5,16 @@ from typing import cast, List, Optional, Union
 from torch.optim.optimizer import _use_grad_for_differentiable
 
 
-class SGD_LEAK(SGD):
+class SGD_LEAP(SGD):
+    """LEAP implementation (Liu et al., CIKM'22, arXiv:2208.11873).
+
+    Adds a per-parameter Gaussian perturbation
+    to the learning rate: h ~ N(eta * 1, (eta * sigma)^2 * I)   [paper Eq. 1]
+
+    Note: sigma is RELATIVE to the current lr (paper's formulation), so the
+    perturbation automatically scales down as the schedule decays eta.
+    """
+    
     def __init__(self, *args, sigma=0.1, **kwargs):
         super().__init__(*args, **kwargs, foreach=False, fused=False)
         self.sigma = sigma
@@ -33,7 +42,7 @@ class SGD_LEAK(SGD):
                 group, params, grads, momentum_buffer_list
             )
 
-            sgd_leak(
+            sgd_leap(
                 params,
                 grads,
                 momentum_buffer_list,
@@ -59,7 +68,7 @@ class SGD_LEAK(SGD):
 
         return loss
 
-def sgd_leak(
+def sgd_leap(
     params: List[Tensor],
     d_p_list: List[Tensor],
     momentum_buffer_list: List[Optional[Tensor]],
@@ -114,7 +123,7 @@ def sgd_leak(
     # else:
     #     func = _single_tensor_sgd
     if not foreach and not fused:
-        func = _single_tensor_sgd_leak
+        func = _single_tensor_sgd_leap
     else:
         raise NameError("foreach and fused not implemented.")
 
@@ -136,7 +145,7 @@ def sgd_leak(
 
 
 
-def _single_tensor_sgd_leak(
+def _single_tensor_sgd_leap(
     params: List[Tensor],
     grads: List[Tensor],
     momentum_buffer_list: List[Optional[Tensor]],
