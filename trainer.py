@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from time import time
+import time
 
 from tools.recorder import Recorder
 from tools.load_data import get_device
@@ -87,15 +87,17 @@ class Trainer:
         self.model.train()
 
     def train_step(self, x, y):
-        time_start = time()
+        torch.cuda.synchronize()
+        time_start = time.perf_counter()
         loss, y_pred = self._compute_grad(x, y) if CALC_TRAIN_LOSS == False\
             else self._compute_grad_loss(x, y, self.score_train)
         quantity_dict = (sch := self.scheduler) is not None and hasattr(sch, 'batch_step') \
                 and sch.batch_step(loss=loss, x=x, y=y, y_pred=y_pred, trainer=self) or {} 
         if self.do_optimiser_step:
             self.optimizer.step()
-        torch.cuda.current_stream().synchronize()
-        time_elapsed = time() - time_start
+        torch.cuda.synchronize()
+        time_end = time.perf_counter()
+        time_elapsed = time_end - time_start
 
         self.recorder.record_batch(quantity_dict)
         self.recorder.time_add(time_elapsed)

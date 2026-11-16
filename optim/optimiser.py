@@ -85,8 +85,13 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
             )
 
             momentum=group["momentum"]
-            if momentum != 0:
-                for num, param in enumerate(params):
+            weight_decay=group["weight_decay"]
+            decoupled_weight_decay=group["decoupled_weight_decay"]
+            for num, param in enumerate(params):
+                if (weight_decay != 0 and decoupled_weight_decay == True):
+                    stat = self.state[param]
+                    stat["wd_buffer"] = param.mul(weight_decay)
+                if momentum != 0:
                     buf = momentum_buffer_list[num]
                     if buf is not None:
                         buf.mul_(momentum)
@@ -205,6 +210,7 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
             maximize=group["maximize"]
             foreach=group["foreach"]
             weight_decay=group["weight_decay"]
+            decoupled_weight_decay=group["decoupled_weight_decay"]
             eta1=group["lr1"]
             has_sparse_grad = self._init_group(
                 group, params, grads, momentum_buffer_list
@@ -213,7 +219,7 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
             if foreach:
                 if maximize:
                     grads = torch._foreach_neg(grads)
-                if weight_decay != 0:
+                if (weight_decay != 0 and decoupled_weight_decay == False):
                     grads = torch._foreach_add(grads, params, alpha=weight_decay)
 
                 #buf = []
@@ -227,7 +233,7 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
                 for num, param in enumerate(params):
                     grad = grads[num] if not maximize else -grads[num]
 
-                    if weight_decay != 0:
+                    if (weight_decay != 0 and decoupled_weight_decay == False):
                         grad = grad.add(param, alpha=weight_decay)
 
                     grad_final[num] = grad #.detach().clone()
@@ -246,6 +252,8 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
 
             foreach=group["foreach"]
             momentum = group["momentum"]
+            weight_decay=group["weight_decay"]
+            decoupled_weight_decay=group["decoupled_weight_decay"]
             grad_final = grads_final[gr_num]
             has_sparse_grad = self._init_group(
                 group, params, grads, momentum_buffer_list
@@ -258,6 +266,13 @@ class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
                 for num, param in enumerate(params):
                     param_shift2 = grad_final[num].mul(eta2_shift)
                     param.sub_(param_shift2)
+
+            if (decoupled_weight_decay == True and weight_decay != 0):
+                for param in params:
+                    stat = self.state[param]
+                    buf = stat["wd_buffer"]
+                    if buf is not None:
+                        param.sub_(buf, alpha = eta2)
 
             if momentum != 0:
                 for num, param in enumerate(params):

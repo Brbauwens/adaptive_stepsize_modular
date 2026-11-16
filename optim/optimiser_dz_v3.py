@@ -23,7 +23,8 @@ class NetDz(NetOptimizer):
         maximize: bool = False,
         foreach=True,
         lookahead_steps=5,
-        lookahead_alpha=1.0
+        lookahead_alpha=1.0,
+        decoupled_weight_decay=False
     ) -> None:
         if lr1 < 0.0:
             raise ValueError(f"Invalid learning rate: {lr1}")
@@ -53,7 +54,8 @@ class NetDz(NetOptimizer):
             "weight_decay": weight_decay,
             "maximize": maximize,
             "foreach": foreach,
-            "linearity_coeff": linearity_coeff
+            "linearity_coeff": linearity_coeff,
+            "decoupled_weight_decay": decoupled_weight_decay
         }
         super().__init__(model, defaults, lookahead_steps, lookahead_alpha)
         #if len(self.param_groups) != 1:

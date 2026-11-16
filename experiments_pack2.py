@@ -58,6 +58,7 @@ val_weight_decay = 5e-3
 val_sigma_coeff = 0.04
 la_steps=5
 la_alpha=0.8
+val_decoupled_wd=True
 
 #Exp100 RESNET18/CIFAR10 with lookahead on
 if 'run_test' in locals() and run_test == 100:
@@ -70,7 +71,8 @@ if 'run_test' in locals() and run_test == 100:
     model = load_resnet('R18D10', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_100 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -89,7 +91,8 @@ if 'run_test' in locals() and run_test == 101:
     model = load_resnet('R18D10', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_101 RESNET18/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -107,7 +110,8 @@ if 'run_test' in locals() and run_test == 110:
     model = load_resnet('R18D100', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_110 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -126,7 +130,8 @@ if 'run_test' in locals() and run_test == 111:
     model = load_resnet('R18D100', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_111 RESNET18/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -144,7 +149,8 @@ if 'run_test' in locals() and run_test == 120:
     model = load_resnet('R34D10', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_120 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -163,7 +169,8 @@ if 'run_test' in locals() and run_test == 121:
     model = load_resnet('R34D10', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_121 RESNET34/CIFAR10/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -181,7 +188,8 @@ if 'run_test' in locals() and run_test == 130:
     model = load_resnet('R34D100', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_130 RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -200,7 +208,8 @@ if 'run_test' in locals() and run_test == 131:
     model = load_resnet('R34D100', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet34v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_131 RESNET34/CIFAR100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -218,7 +227,8 @@ if 'run_test' in locals() and run_test == 140:
     model = load_resnet('R18D10', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_140 RESNET18/SVHN/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -237,7 +247,8 @@ if 'run_test' in locals() and run_test == 150:
     model = load_resnet('R18D100', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_150 RESNET18/ImageNet100/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
@@ -256,7 +267,8 @@ if 'run_test' in locals() and run_test == 151:
     model = load_resnet('R18D200', net_num = manual_seed).to(device)
 
     exps = initialise_experiments_by_mask(model, meta, EPOCHS_PER_EXPERIMENT, lr1, lr_max, val_momentum, val_weight_decay,\
-                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2)
+                                          val_linearity_coeff, la_alpha, val_sigma_coeff, mask_exp, fn_clone = clone_resnet18v2,\
+                                          decoupled_wd=val_decoupled_wd)
 
     print(f"Experiment_151 RESNET18/TinyImageNet/{EPOCHS_PER_EXPERIMENT} epochs №{job_nr_str} with manual_seed={manual_seed} "+
           f"started at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")

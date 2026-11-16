@@ -6,23 +6,27 @@ from tools.util_optimisers import initialise_netline, initialise_dz, initialise_
 mask_netline, mask_dz, mask_lookahead, mask_leap, mask_sgd = 1, 2, 4, 8, 16
 
 def initialise_netline_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
-                       la_steps = 5, la_alpha = 1.0):
+                       la_steps = 5, la_alpha = 1.0, decoupled_wd = False):
     nl_opt, nl_sch = initialise_netline(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay,\
-                                        linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps)
+                                        linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps,\
+                                        decoupled_wd=decoupled_wd)
     return ExperimentWithScheduler("netline", model, nl_opt, nl_sch, do_optimiser_step=False)
 
 def initialise_dz_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, linearity_coeff,\
-                  la_steps = 5, la_alpha = 1.0):
+                  la_steps = 5, la_alpha = 1.0, decoupled_wd = False):
     dz_opt, dz_sch = initialise_dz(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay, \
-                                   linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps)
+                                   linearity_coeff=linearity_coeff, la_alpha=la_alpha, la_steps=la_steps,\
+                                   decoupled_wd=decoupled_wd)
     return ExperimentWithScheduler("dz", model, dz_opt, dz_sch, do_optimiser_step=False)
 
 def initialise_lookahead_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay, la_steps=5, la_alpha=0.8):
-    la_opt, la_sch = initialise_lookahead(model, epochs_per_experiment, lr_max, momentum, weight_decay, la_alpha=la_alpha, la_steps=la_steps)
+    la_opt, la_sch = initialise_lookahead(model, epochs_per_experiment, lr_max, momentum, weight_decay,\
+                                          la_alpha=la_alpha, la_steps=la_steps)
     return ExperimentWithScheduler("lookahead", model, la_opt, la_sch, do_optimiser_step=True)
 
-def initialise_leap_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff):
-    leap_opt, leap_sch = initialise_leap(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff)
+def initialise_leap_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff, la_steps=5, la_alpha=0.8):
+    leap_opt, leap_sch = initialise_leap(model, epochs_per_experiment, lr_max, momentum, weight_decay, sigma_coeff,\
+                                         la_alpha=la_alpha, la_steps=la_steps)
     return ExperimentWithScheduler("leap", model, leap_opt, leap_sch, do_optimiser_step=True)
 
 def initialise_sgd_experiment(model, epochs_per_experiment, lr_max, momentum, weight_decay):
@@ -30,19 +34,21 @@ def initialise_sgd_experiment(model, epochs_per_experiment, lr_max, momentum, we
     return ExperimentWithScheduler("sgd-cosine", model, sgd_opt, sgd_sch, do_optimiser_step=True)
 
 def initialise_experiments_by_mask(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay,\
-                                   linearity_coeff, la_alpha, sigma_coeff, mask_exp, fn_clone):
+                                   linearity_coeff, la_alpha, sigma_coeff, mask_exp, fn_clone, decoupled_wd = False):
+    weight_decay_spec = weight_decay if decoupled_wd == False else weight_decay/(1-momentum)
     exps = []
     if mask_exp & mask_netline > 0:
-        exps.append(initialise_netline_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay,\
-                                            linearity_coeff=linearity_coeff, la_alpha=la_alpha))
+        exps.append(initialise_netline_experiment(model, meta, epochs_per_experiment, lr1, lr_max, momentum, weight_decay_spec,\
+                                            linearity_coeff=linearity_coeff, la_alpha=la_alpha, decoupled_wd=decoupled_wd))
     if mask_exp & mask_dz > 0:
         exps.append(initialise_dz_experiment(fn_clone(model, meta), meta, epochs_per_experiment, lr1, lr_max, momentum,\
-                                              weight_decay, linearity_coeff=linearity_coeff, la_alpha=la_alpha))
+                                              weight_decay_spec, linearity_coeff=linearity_coeff, la_alpha=la_alpha,\
+                                              decoupled_wd=decoupled_wd))
     if mask_exp & mask_lookahead > 0:
         exps.append(initialise_lookahead_experiment(fn_clone(model, meta), epochs_per_experiment, lr_max, momentum, weight_decay))
     if mask_exp & mask_leap > 0:
         exps.append(initialise_leap_experiment(fn_clone(model, meta), epochs_per_experiment, lr_max, momentum,\
-                                                weight_decay, sigma_coeff))
+                                                weight_decay, sigma_coeff, la_alpha=la_alpha))
     if mask_exp & mask_sgd > 0:
         exps.append(initialise_sgd_experiment(fn_clone(model, meta), epochs_per_experiment, lr_max, momentum, weight_decay))
 
