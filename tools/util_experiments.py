@@ -84,3 +84,31 @@ def load_resnet(net_type, net_num = -1):
         net.load_state_dict(torch.load(_resnet_filename(net_type, net_num), weights_only=True))
     net.eval()
     return net
+
+
+def get_job_nr(args):
+    if len(args) >= 3:
+        return args[2]
+    else:
+        return '0'
+
+def get_epochs_per_exp(args):
+    if len(args) >= 4:
+        return int(args[3])
+    else:
+        return 50
+
+def get_mask(args):
+    if len(args) >= 5:
+        return int(args[4])
+    else:
+        return 31
+
+def get_manual_seed(args):
+    if len(args) >= 6:
+        return int(args[5])
+    else:
+        return -1
+
+def get_extra_params(args):
+    return get_job_nr(args), get_epochs_per_exp(args), get_mask(args), get_manual_seed(args)

@@ -7,7 +7,7 @@ import math
 import logging
 
 from optim.utils import MetaData
-from optim.optimiser import NetOptimizer
+from optim.optimiser import NetOptimizer, NETLINE_TEMPERATURE
 
 
 #TODO: support multi param_groups in model
@@ -81,9 +81,9 @@ class NetLine(NetOptimizer):
         #Large step eta calculation
         eta1 = self.param_groups[0]["lr1"]
         pp = F.one_hot(labels, self.meta.output_dim)
-        qq0 = F.softmax(logits0, dim=1)
+        qq0 = F.softmax(logits0/NETLINE_TEMPERATURE, dim=1)
         logits1 = self.model.forward(images)
-        qq1 = F.softmax(logits1, dim=1)
+        qq1 = F.softmax(logits1/NETLINE_TEMPERATURE, dim=1)
         delta_pq, delta_q1q = pp-qq0, qq1-qq0
         norm_qq1 = norm(delta_q1q, ord='fro')
 

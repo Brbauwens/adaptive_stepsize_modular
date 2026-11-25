@@ -16,6 +16,8 @@ ParamsT: TypeAlias = (
     | Iterable[tuple[str, torch.Tensor]]
 )
 
+NETLINE_TEMPERATURE = 1.0
+
 class NetOptimizer(optim.Optimizer, metaclass=abc.ABCMeta):
     def __init__(self, model: nn.Module, defaults: dict[str, Any], lookahead_steps: int, lookahead_alpha: float) -> None:
         super().__init__(model.parameters(), defaults)
